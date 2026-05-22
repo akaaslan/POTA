@@ -7,6 +7,7 @@ import { useAuthStore } from '../src/store/auth';
 import { authService, profileService } from '../src/services';
 import OnboardingScreen from '../src/screens/OnboardingScreen';
 import { C } from '../src/theme';
+import { api } from '../src/api/client';
 
 export default function OnboardingRoute() {
   var router = useRouter();
@@ -21,14 +22,30 @@ export default function OnboardingRoute() {
       Alert.alert('Eksik Bilgi', 'Takma adın ve bölgen zorunludur.');
       return;
     }
+    if (!api.isMock()) {
+      if (!draft.email || !draft.email.includes('@')) {
+        Alert.alert('Eksik Bilgi', 'Geçerli bir e-posta adresi girin.');
+        return;
+      }
+      if (!draft.password || draft.password.length < 6) {
+        Alert.alert('Eksik Bilgi', 'Şifre en az 6 karakter olmalıdır.');
+        return;
+      }
+    }
     setSubmitting(true);
     try {
-      var sess = await authService.signInMock(draft);
+      var sess;
+      if (api.isMock()) {
+        sess = await authService.signInMock(draft);
+      } else {
+        sess = await authService.signUp(draft.email, draft.password, draft);
+      }
       setSession(sess);
       qc.invalidateQueries();
       router.replace('/(tabs)/');
     } catch (e) {
-      Alert.alert('Hata', 'Giriş yapılamadı.');
+      var msg = (e && e.message) ? e.message : 'Kayıt oluşturulamadı. Tekrar dene.';
+      Alert.alert('Hata', msg);
     } finally {
       setSubmitting(false);
     }

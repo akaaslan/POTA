@@ -13,11 +13,11 @@ export var FORMATS = [
 ];
 
 export var POSITIONS = [
-  'Oyun Kurucu', 'Kanat', 'Uzun Adam', 'Şüt Oyuncusu', 'Pivi',
+  'Oyun Kurucu', 'Kanat', 'Uzun Adam', 'Şut Oyuncusu', 'Pivot',
 ];
 
 export var ARCHETYPES = [
-  'Slasher', 'Nişancı', 'Kale Bekçi', 'Playmaker', 'Savunma Duvarı',
+  'Slasher', 'Nişancı', 'Kale Bekçisi', 'Playmaker', 'Savunma Duvarı',
 ];
 
 export var EXPERIENCES = [

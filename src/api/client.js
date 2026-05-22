@@ -6,7 +6,7 @@
 //   4. Servis metodlarındaki TODO yorumları hangi endpoint'in kullanılacağını gösterir
 // ─────────────────────────────────────────────────────────────────────────────
 
-var MOCK_MODE = true; // TODO: Backend hazır olduğunda false yap
+var MOCK_MODE = false;
 var BASE_URL = 'https://api.pota.app/v1'; // TODO: Gerçek API endpoint'i
 
 var _authToken = null;

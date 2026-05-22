@@ -10,6 +10,22 @@
     "close": "KAPAT"
   },
 
+  "toast": {
+    "join_match_success": "Maça katıldın! Saha seni bekliyor.",
+    "join_match_error": "Maça katılamadın. Tekrar dene.",
+    "leave_match_error": "Maçtan çıkılamadı. Tekrar dene.",
+    "create_match_error": "Maç oluşturulamadı. Tekrar dene.",
+    "report_score_success": "Skor kaydedildi!",
+    "report_score_error": "Skor kaydedilemedi. Tekrar dene.",
+    "join_team_success": "Takıma katıldın!",
+    "join_team_error": "Takıma katılamadın. Tekrar dene.",
+    "leave_team_error": "Takımdan çıkılamadı. Tekrar dene.",
+    "save_profile_success": "Profil güncellendi.",
+    "save_profile_error": "Profil güncellenemedi. Tekrar dene.",
+    "auth_error": "Giriş yapılamadı. Tekrar dene.",
+    "signup_error": "Kayıt oluşturulamadı. Tekrar dene."
+  },
+
   "tabs": {
     "home": "ANA SAYFA",
     "runs": "MAÇLAR",
@@ -211,6 +227,10 @@
     "required_district": "Semt seçimi zorunludur",
     "positions": ["Oyun Kurucu", "Kanat", "Uzun Adam", "Şut Oyuncusu", "Pivot"],
     "archetypes": ["Slasher", "Nişancı", "Kale Bekçisi", "Playmaker", "Savunma Duvarı"],
+    "email": "E-POSTA",
+    "password": "ŞİFRE",
+    "placeholder_email": "ornek@email.com",
+    "placeholder_password": "En az 6 karakter",
     "levels": ["Acemi", "Orta Seviye", "Yarı-Pro", "Pro-Am", "Elit"],
     "districts": ["Kadıköy", "Beşiktaş", "Şişli", "Üsküdar", "Fatih", "Bağcılar", "Zeytinburnu", "Sarıyer", "Diğer"]
   },

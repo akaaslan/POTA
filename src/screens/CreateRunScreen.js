@@ -9,30 +9,9 @@ import { C, F, R, S } from '../theme';
 import { useCreateMatch } from '../hooks/useMatches';
 import { t } from '../i18n';
 import { useUIStore } from '../store/ui';
+import { MOCK_COURTS } from '../data/mockData';
 
-// ─── Mock court data ──────────────────────────────────────────────────────────
-var COURTS = [
-  {
-    id: 'c1', name: 'MODA CAGE', district: 'Kadıköy', distance: '1.2km', popular: true,
-    image: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=400&q=80',
-  },
-  {
-    id: 'c2', name: 'MAÇKA PARKI', district: 'Beşiktaş', distance: '2.8km', popular: false,
-    image: 'https://images.unsplash.com/photo-1591103877275-f62e20079e47?w=400&q=80',
-  },
-  {
-    id: 'c3', name: 'CADDEBOSTAN', district: 'Kadıköy', distance: '3.1km', popular: true,
-    image: 'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=400&q=80',
-  },
-  {
-    id: 'c4', name: 'BEŞİKTAŞ SAHİL', district: 'Beşiktaş', distance: '4.0km', popular: false,
-    image: 'https://images.unsplash.com/photo-1504450758481-7338eba7524a?w=400&q=80',
-  },
-  {
-    id: 'c5', name: 'ÜSKÜDAR MEYDAN', district: 'Üsküdar', distance: '5.2km', popular: false,
-    image: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400&q=80',
-  },
-];
+var COURTS = MOCK_COURTS;
 
 var FORMAT_LABEL = { '3V3': '3v3 Yarı Saha', '5V5': '5v5 Tam Saha' };
 var LEVEL_LABEL  = { 'ROOKİE': 'Açık Saha', 'PRO-AM': 'Pro-Am', 'ELİT': 'Elit' };
@@ -96,6 +75,7 @@ export default function CreateRunScreen() {
   var router = useRouter();
   var insets = useSafeAreaInsets();
   var createMatch = useCreateMatch();
+  var showToast = useUIStore(function(s) { return s.showToast; });
 
   var [courtId,  setCourtId]  = useState(COURTS[0].id);
   var [format,   setFormat]   = useState('3V3');
@@ -119,6 +99,7 @@ export default function CreateRunScreen() {
     var fee     = feeRaw === 'Ücretsiz' ? null : feeRaw.replace(' TL', '');
     createMatch.mutate({
       title:      court.name + ' ' + (FORMAT_LABEL[format] || format),
+      courtId:    court.id,
       courtName:  court.name,
       district:   court.district,
       format:     FORMAT_LABEL[format] || format,

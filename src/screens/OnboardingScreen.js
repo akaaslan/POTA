@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
+import { api } from '../api/client';
 
 var POSITIONS   = t('profileEdit.positions');
 var ARCHETYPES  = t('profileEdit.archetypes');
@@ -50,6 +51,33 @@ export default function OnboardingScreen({ draft, onChange, onSubmit, submitting
           <Text style={ob.heroSub}>{t('onboarding.hero_sub')}</Text>
         </View>
         <View style={ob.formCard}>
+          {!api.isMock() && (
+            <>
+              <FieldGroup label={t('profileEdit.email')}>
+                <TextInput
+                  style={ob.input}
+                  placeholder={t('profileEdit.placeholder_email')}
+                  placeholderTextColor={C.textDim}
+                  value={draft.email || ''}
+                  onChangeText={function(v) { set('email', v); }}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoComplete="email"
+                />
+              </FieldGroup>
+              <FieldGroup label={t('profileEdit.password')}>
+                <TextInput
+                  style={ob.input}
+                  placeholder={t('profileEdit.placeholder_password')}
+                  placeholderTextColor={C.textDim}
+                  value={draft.password || ''}
+                  onChangeText={function(v) { set('password', v); }}
+                  secureTextEntry={true}
+                  autoComplete="new-password"
+                />
+              </FieldGroup>
+            </>
+          )}
           <FieldGroup label={t('onboarding.field_nickname')}>
             <TextInput
               style={ob.input}
