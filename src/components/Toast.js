@@ -38,7 +38,7 @@ export default function Toast() {
 
   return (
     <Animated.View
-      pointerEvents="box-none"
+      pointerEvents={toast ? 'box-none' : 'none'}
       style={[
         t.wrap,
         { bottom: Math.max(insets.bottom, 0) + 80 },

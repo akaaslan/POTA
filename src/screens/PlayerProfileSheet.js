@@ -137,6 +137,7 @@ var pp = StyleSheet.create({
   district: { color: C.textMuted, fontSize: F.xs, marginTop: 2 },
   tierBadge: { backgroundColor: C.lime + '20', borderRadius: R.full, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: C.lime + '44' },
   tierTxt: { color: C.lime, fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+  avatar: {
     width: 72, height: 72,
     borderRadius: R.full,
     backgroundColor: C.bgCard2,

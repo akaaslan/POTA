@@ -21,13 +21,18 @@ function CustomTabBar({ state, navigation }) {
       {/* Top neon separator */}
       <View style={tb.topBorder} />
       {state.routes.map(function(route, index) {
-        var tab = TAB_CONFIG.find(function(t) { return t.name === route.name; }) || TAB_CONFIG[index];
+        var tab = TAB_CONFIG.find(function(cfg) { return cfg.name === route.name; }) || TAB_CONFIG[index];
         var isFocused = state.index === index;
         return (
           <TouchableOpacity
             key={route.key}
             style={tb.tab}
-            onPress={function() { navigation.navigate(route.name); }}
+            onPress={function() {
+              var event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(route.name);
+              }
+            }}
             activeOpacity={0.7}
           >
             {/* Neon top indicator line */}
