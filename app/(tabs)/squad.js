@@ -22,6 +22,7 @@ export default function SquadTab() {
         openSheet('chat', { team: featuredTeam });
       }}
       onOpenPlayer={function(player) { openSheet('player-profile', player); }}
+      onManageLineup={function() {
         showToast(t('squad.lineup_coming_soon'), 'info');
       }}
     />
