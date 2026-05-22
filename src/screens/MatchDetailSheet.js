@@ -1,16 +1,36 @@
 
-import React from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView, Modal, ActivityIndicator, StyleSheet, Dimensions } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, ActivityIndicator, Alert, Share, StyleSheet, Dimensions } from 'react-native';
+import { Image } from 'expo-image';
 import { C, F, R, S } from '../theme';
+import { t } from '../i18n';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
-export default function MatchDetailSheet({ match, isJoined, joining, onClose, onJoin, onLeave }) {
+export default function MatchDetailSheet({ match, isJoined, joining, onClose, onJoin, onLeave, onReportScore }) {
   if (!match) return null;
+  var [showScoreEntry, setShowScoreEntry] = useState(false);
+  var [scoreA, setScoreA] = useState('');
+  var [scoreB, setScoreB] = useState('');
   var filled = match.playersJoined;
   var total = match.capacity;
   var pct = total > 0 ? (filled / total) : 0;
   var spotsLeft = total - filled;
+
+  function handleJoinPress() {
+    if (match.feeType === 'Ucretli') {
+      Alert.alert(
+        t('matchDetail.fee_alert_title'),
+        t('matchDetail.fee_alert_msg', { fee: match.fee }),
+        [
+          { text: t('matchDetail.fee_alert_cancel'), style: 'cancel' },
+          { text: t('matchDetail.fee_alert_confirm', { fee: match.fee }), onPress: function() { onJoin(match); } },
+        ]
+      );
+    } else {
+      onJoin(match);
+    }
+  }
   return (
     <Modal visible={!!match} transparent animationType="slide" onRequestClose={onClose}>
       <View style={md.root}>
@@ -21,12 +41,12 @@ export default function MatchDetailSheet({ match, isJoined, joining, onClose, on
           <TouchableOpacity style={md.closeBtn} onPress={onClose} activeOpacity={0.8}>
             <Text style={md.closeIcon}>✕</Text>
           </TouchableOpacity>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={md.scroll}>
+          <ScrollView style={md.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={md.scroll}>
             <View style={md.pillRow}>
               {match.status === 'live' ? (
-                <View style={md.livePill}><View style={md.liveDot} /><Text style={md.liveTxt}>CANLI</Text></View>
+                <View style={md.livePill}><View style={md.liveDot} /><Text style={md.liveTxt}>{t('matchDetail.status_live')}</Text></View>
               ) : match.status === 'streaking' ? (
-                <View style={md.hotPill}><Text style={md.hotTxt}>🔥 AKTİF</Text></View>
+                <View style={md.hotPill}><Text style={md.hotTxt}>{t('matchDetail.status_active')}</Text></View>
               ) : null}
               <View style={md.pill}><Text style={md.pillTxt}>{match.skillLevel}</Text></View>
               <View style={md.pill}><Text style={md.pillTxt}>{match.format}</Text></View>
@@ -41,22 +61,22 @@ export default function MatchDetailSheet({ match, isJoined, joining, onClose, on
             <View style={md.divider} />
             <View style={md.section}>
               <View style={md.sectionHead}>
-                <Text style={md.sectionLbl}>OYUNCULAR</Text>
+                <Text style={md.sectionLbl}>{t('matchDetail.section_players')}</Text>
                 <Text style={md.sectionVal}>{filled} / {total}</Text>
               </View>
               <View style={md.progressTrack}>
                 <View style={[md.progressFill, { width: (Math.round(pct * 100)) + '%' }]} />
               </View>
-              <Text style={md.spotsTxt}>{spotsLeft} yer kaldı</Text>
+              <Text style={md.spotsTxt}>{spotsLeft} {t('matchDetail.spots_left')}</Text>
             </View>
             <View style={md.divider} />
             <View style={md.feeSection}>
-              <Text style={md.sectionLbl}>KATILIM ÜCRETİ</Text>
-              <Text style={md.feeVal}>{match.feeType === 'Ucretli' ? match.fee + ' ₺' : 'ÜCRETSİZ'}</Text>
+              <Text style={md.sectionLbl}>{t('matchDetail.section_fee')}</Text>
+              <Text style={md.feeVal}>{match.feeType === 'Ucretli' ? match.fee + ' ₺' : t('matchDetail.fee_free')}</Text>
             </View>
             <View style={md.divider} />
             <View style={md.hostSection}>
-              <Text style={md.sectionLbl}>DÜZENLEYEN</Text>
+              <Text style={md.sectionLbl}>{t('matchDetail.section_host')}</Text>
               <View style={md.hostRow}>
                 <View style={md.hostAvatar}>
                   <Text style={md.hostAvatarTxt}>{match.host ? match.host.charAt(0) : '?'}</Text>
@@ -68,30 +88,93 @@ export default function MatchDetailSheet({ match, isJoined, joining, onClose, on
               <View>
                 <View style={md.divider} />
                 <View style={md.descSection}>
-                  <Text style={md.sectionLbl}>AÇIKLAMA</Text>
+                  <Text style={md.sectionLbl}>{t('matchDetail.section_desc')}</Text>
                   <Text style={md.descTxt}>{match.description}</Text>
                 </View>
               </View>
             ) : null}
-            <View style={md.divider} />
+            <View style={{ height: S.lg }} />
+          </ScrollView>
+          <View style={md.footer}>
             {isJoined ? (
-              <View style={md.ctaRow}>
-                <View style={md.joinedPill}><Text style={md.joinedTxt}>✓  KATILDINIZ</Text></View>
-                <TouchableOpacity style={md.leaveBtn} onPress={function() { onLeave(match); }} disabled={!!joining} activeOpacity={0.85}>
-                  {joining ? <ActivityIndicator size="small" color={C.red} /> : <Text style={md.leaveTxt}>ÇIKIYORUM</Text>}
-                </TouchableOpacity>
-              </View>
+              <>
+                <View style={md.ctaRow}>
+                  <View style={md.joinedPill}><Text style={md.joinedTxt}>{t('matchDetail.joined_badge')}</Text></View>
+                  <TouchableOpacity style={md.leaveBtn} onPress={function() { onLeave(match); }} disabled={!!joining} activeOpacity={0.85}>
+                    {joining ? <ActivityIndicator size="small" color={C.red} /> : <Text style={md.leaveTxt}>{t('matchDetail.leave_btn')}</Text>}
+                  </TouchableOpacity>
+                </View>
+                {onReportScore && match.status === 'live' ? (
+                  showScoreEntry ? (
+                    <View style={md.scoreEntry}>
+                      <Text style={md.scoreLbl}>{t('matchDetail.score_label')}</Text>
+                      <View style={md.scoreRow}>
+                        <TextInput
+                          style={md.scoreInput}
+                          value={scoreA}
+                          onChangeText={setScoreA}
+                          keyboardType="number-pad"
+                          maxLength={3}
+                          placeholder="0"
+                          placeholderTextColor={C.textMuted}
+                        />
+                        <Text style={md.scoreSep}>–</Text>
+                        <TextInput
+                          style={md.scoreInput}
+                          value={scoreB}
+                          onChangeText={setScoreB}
+                          keyboardType="number-pad"
+                          maxLength={3}
+                          placeholder="0"
+                          placeholderTextColor={C.textMuted}
+                        />
+                      </View>
+                      <View style={md.scoreActions}>
+                        <TouchableOpacity style={md.scoreCancelBtn} onPress={function() { setShowScoreEntry(false); setScoreA(''); setScoreB(''); }} activeOpacity={0.8}>
+                          <Text style={md.scoreCancelTxt}>{t('matchDetail.report_cancel')}</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[md.scoreSubmitBtn, (!scoreA || !scoreB) && md.scoreSubmitDisabled]}
+                          disabled={!scoreA || !scoreB}
+                          onPress={function() {
+                            var a = parseInt(scoreA) || 0;
+                            var b = parseInt(scoreB) || 0;
+                            onReportScore(match, { scoreA: a, scoreB: b });
+                            setShowScoreEntry(false);
+                            setScoreA('');
+                            setScoreB('');
+                          }}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={md.scoreSubmitTxt}>{t('matchDetail.score_submit')}</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={md.reportBtn} onPress={function() { setShowScoreEntry(true); }} activeOpacity={0.85}>
+                      <Text style={md.reportTxt}>{t('matchDetail.report_btn')}</Text>
+                    </TouchableOpacity>
+                  )
+                ) : null}
+              </>
             ) : (
-              <TouchableOpacity style={md.joinBtn} onPress={function() { onJoin(match); }} disabled={!!joining || spotsLeft === 0} activeOpacity={0.85}>
+              <TouchableOpacity style={md.joinBtn} onPress={handleJoinPress} disabled={!!joining || spotsLeft === 0} activeOpacity={0.85}>
                 {joining ? (
                   <ActivityIndicator size="small" color="#000" />
                 ) : (
-                  <Text style={md.joinTxt}>{spotsLeft === 0 ? 'SAHA DOLU' : 'OYUNA GİR  →'}</Text>
+                  <Text style={md.joinTxt}>{spotsLeft === 0 ? t('matchDetail.full_btn') : t('matchDetail.join_btn')}</Text>
                 )}
               </TouchableOpacity>
             )}
-            <View style={{ height: 40 }} />
-          </ScrollView>
+            <TouchableOpacity style={md.shareBtn} onPress={function() {
+              Share.share({
+                message: match.title + ' — POTA\n' + match.courtName + ', ' + match.district + '\n' + match.dateTime,
+                title: match.title,
+              });
+            }} activeOpacity={0.85}>
+              <Text style={md.shareTxt}>{t('matchDetail.share_btn')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -101,12 +184,13 @@ export default function MatchDetailSheet({ match, isJoined, joining, onClose, on
 const md = StyleSheet.create({
   root: { flex: 1 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
-  sheet: { height: SCREEN_H * 0.9, backgroundColor: C.bgCard, borderTopLeftRadius: R.x2, borderTopRightRadius: R.x2, overflow: 'hidden' },
+  sheet: { height: SCREEN_H * 0.9, backgroundColor: C.bgCard, borderTopLeftRadius: R.x2, borderTopRightRadius: R.x2, overflow: 'hidden', flexDirection: 'column' },
   heroImg: { width: '100%', height: 220, position: 'absolute', top: 0 },
   heroDim: { position: 'absolute', top: 0, left: 0, right: 0, height: 220, backgroundColor: 'rgba(0,0,0,0.35)' },
   closeBtn: { position: 'absolute', top: S.base, right: S.base, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.5)', width: 36, height: 36, borderRadius: R.full, alignItems: 'center', justifyContent: 'center' },
   closeIcon: { color: '#fff', fontSize: F.base, fontWeight: '700' },
   scroll: { marginTop: 200, backgroundColor: C.bgCard, borderTopLeftRadius: R.xl, borderTopRightRadius: R.xl, padding: S.screen, paddingTop: S.lg },
+  scrollView: { flex: 1 },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm, marginBottom: S.md },
   livePill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: C.orange, borderRadius: R.full, paddingHorizontal: 12, paddingVertical: 5 },
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
@@ -142,6 +226,20 @@ const md = StyleSheet.create({
   joinedTxt: { color: C.green, fontSize: F.sm, fontWeight: '900', letterSpacing: 1 },
   leaveBtn: { paddingHorizontal: S.xl, paddingVertical: 14, borderRadius: R.md, borderWidth: 1, borderColor: C.red },
   leaveTxt: { color: C.red, fontSize: F.sm, fontWeight: '800' },
-  joinBtn: { backgroundColor: C.lime, borderRadius: R.md, paddingVertical: 16, alignItems: 'center' },
-  joinTxt: { color: '#000', fontSize: F.sm, fontWeight: '900', letterSpacing: 2 },
+  joinBtn: { backgroundColor: C.orange, borderRadius: R.md, paddingVertical: 16, alignItems: 'center' },
+  joinTxt: { color: '#fff', fontSize: F.sm, fontWeight: '900', letterSpacing: 2 },
+  reportBtn: { marginTop: S.sm, borderWidth: 1, borderColor: C.lime, borderRadius: R.md, paddingVertical: 12, alignItems: 'center' },
+  reportTxt: { color: C.lime, fontSize: F.xs, fontWeight: '900', letterSpacing: 2 },  scoreEntry: { marginTop: S.sm, backgroundColor: C.bgCard2, borderRadius: R.md, padding: S.md, borderWidth: 1, borderColor: C.border },
+  scoreLbl: { color: C.textDim, fontSize: F.xs, fontWeight: '800', letterSpacing: 2, textAlign: 'center', marginBottom: S.sm },
+  scoreRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: S.md, marginBottom: S.md },
+  scoreInput: { width: 72, height: 52, backgroundColor: C.bgPanel, borderRadius: R.sm, borderWidth: 1, borderColor: C.borderLight, color: C.text, fontSize: F.x2, fontWeight: '900', textAlign: 'center' },
+  scoreSep: { color: C.textDim, fontSize: F.x2, fontWeight: '300' },
+  scoreActions: { flexDirection: 'row', gap: S.sm },
+  scoreCancelBtn: { flex: 1, borderRadius: R.sm, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: C.border },
+  scoreCancelTxt: { color: C.textDim, fontSize: F.xs, fontWeight: '700' },
+  scoreSubmitBtn: { flex: 2, borderRadius: R.sm, paddingVertical: 10, alignItems: 'center', backgroundColor: C.lime },
+  scoreSubmitDisabled: { opacity: 0.4 },
+  scoreSubmitTxt: { color: '#000', fontSize: F.xs, fontWeight: '900', letterSpacing: 1 },  shareBtn: { marginTop: S.sm, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingVertical: 10, alignItems: 'center' },
+  shareTxt: { color: C.textDim, fontSize: F.xs, fontWeight: '700', letterSpacing: 1.5 },
+  footer: { borderTopWidth: 1, borderTopColor: C.border, paddingHorizontal: S.screen, paddingTop: S.md, paddingBottom: 30, backgroundColor: C.bgCard },
 });

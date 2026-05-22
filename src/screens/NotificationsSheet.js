@@ -9,10 +9,11 @@ import {
   Dimensions,
 } from 'react-native';
 import { C, F, R, S } from '../theme';
+import { t } from '../i18n';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
-export default function NotificationsSheet({ open, notifications, onClose, onMarkAllRead }) {
+export default function NotificationsSheet({ open, notifications, onClose, onMarkAllRead, onNotifPress }) {
   var unreadCount = (notifications || []).filter(function(n) { return !n.read; }).length;
 
   return (
@@ -25,7 +26,7 @@ export default function NotificationsSheet({ open, notifications, onClose, onMar
           {/* Header */}
           <View style={ns.header}>
             <View style={ns.headerLeft}>
-              <Text style={ns.headerTitle}>BİLDİRİMLER</Text>
+              <Text style={ns.headerTitle}>{t('notifications.title')}</Text>
               {unreadCount > 0 ? (
                 <View style={ns.unreadBadge}>
                   <Text style={ns.unreadNum}>{unreadCount}</Text>
@@ -34,7 +35,7 @@ export default function NotificationsSheet({ open, notifications, onClose, onMar
             </View>
             {unreadCount > 0 ? (
               <TouchableOpacity onPress={onMarkAllRead}>
-                <Text style={ns.markAllText}>TÜMÜNÜ OKU</Text>
+                <Text style={ns.markAllText}>{t('notifications.mark_read')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -43,14 +44,19 @@ export default function NotificationsSheet({ open, notifications, onClose, onMar
             {(!notifications || notifications.length === 0) ? (
               <View style={ns.empty}>
                 <Text style={ns.emptyIcon}>🏀</Text>
-                <Text style={ns.emptyText}>Henüz bildirim yok</Text>
-                <Text style={ns.emptySubText}>Maçlara katıldıkça bildirimler burada görünecek.</Text>
+                <Text style={ns.emptyText}>{t('notifications.empty_title')}</Text>
+                <Text style={ns.emptySubText}>{t('notifications.empty_sub')}</Text>
               </View>
             ) : (
               notifications.map(function(notif, i) {
                 var isLast = i === notifications.length - 1;
                 return (
-                  <View key={notif.id} style={[ns.notifRow, !isLast && ns.notifBorder]}>
+                  <TouchableOpacity
+                    key={notif.id}
+                    style={[ns.notifRow, !isLast && ns.notifBorder]}
+                    onPress={function() { if (onNotifPress) onNotifPress(notif); }}
+                    activeOpacity={0.75}
+                  >
                     <View style={[ns.notifDot, notif.read && ns.notifDotRead]} />
                     <View style={ns.notifIconBox}>
                       <Text style={ns.notifIcon}>{notif.icon}</Text>
@@ -61,7 +67,7 @@ export default function NotificationsSheet({ open, notifications, onClose, onMar
                       </Text>
                       <Text style={ns.notifTime}>{notif.time}</Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}
@@ -71,7 +77,7 @@ export default function NotificationsSheet({ open, notifications, onClose, onMar
           {/* Close */}
           <View style={ns.footer}>
             <TouchableOpacity style={ns.closeBtn} onPress={onClose} activeOpacity={0.8}>
-              <Text style={ns.closeBtnText}>KAPAT</Text>
+              <Text style={ns.closeBtnText}>{t('notifications.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>

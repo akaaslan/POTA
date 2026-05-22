@@ -10,7 +10,15 @@ import {
   Modal,
   StyleSheet,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, F, R, S } from '../theme';
+import { t } from '../i18n';
+
+var AUTO_REPLIES = [
+  { author: 'KRAL', texts: ['👍', 'Tamam, görüşürüz.', 'OK.', 'Hazırız.', 'Sahada buluşuruz.'] },
+  { author: 'BORAN', texts: ['Harika!', '💪', 'Geliyor.', 'Ben de oradayım.', 'Anlıyorum.'] },
+  { author: 'GÖLGE_34', texts: ['Anladım.', '🔥', 'Güzel.', 'Savunmayı iyi oynayalım.', 'Tamam bro.'] },
+];
 
 var MOCK_MESSAGES = [
   { id: 'm1', author: 'KRAL', text: 'Saha 21:00de. Geç kalmayın.', mine: false, time: '20:45' },
@@ -49,46 +57,65 @@ function MsgBubble({ msg }) {
 }
 
 export default function ChatSheet({ open, team, onClose, onSendMessage }) {
+  var insets = useSafeAreaInsets();
   var [messages, setMessages] = useState(MOCK_MESSAGES);
   var [input, setInput] = useState('');
+  var [typing, setTyping] = useState(null); // author name who is typing
   var listRef = useRef(null);
+
+  function scrollToEnd() {
+    setTimeout(function() {
+      if (listRef.current) listRef.current.scrollToEnd({ animated: true });
+    }, 100);
+  }
 
   function send() {
     var text = input.trim();
     if (!text) return;
-    var newMsg = {
-      id: 'msg-' + Date.now(),
-      author: 'Sen',
-      text: text,
-      mine: true,
-      time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
-    };
+    var now = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    var newMsg = { id: 'msg-' + Date.now(), author: 'Sen', text: text, mine: true, time: now };
     setMessages(function(prev) { return prev.concat([newMsg]); });
     setInput('');
     if (onSendMessage) onSendMessage(text);
+    scrollToEnd();
+
+    // Simulate teammate auto-reply
+    var replier = AUTO_REPLIES[Math.floor(Math.random() * AUTO_REPLIES.length)];
+    var replyText = replier.texts[Math.floor(Math.random() * replier.texts.length)];
     setTimeout(function() {
-      if (listRef.current) listRef.current.scrollToEnd({ animated: true });
-    }, 100);
+      setTyping(replier.author);
+      scrollToEnd();
+    }, 900);
+    setTimeout(function() {
+      setTyping(null);
+      var replyTime = new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      var reply = { id: 'reply-' + Date.now(), author: replier.author, text: replyText, mine: false, time: replyTime };
+      setMessages(function(prev) { return prev.concat([reply]); });
+      scrollToEnd();
+    }, 2400);
   }
 
   return (
     <Modal visible={!!open} animationType="slide" onRequestClose={onClose}>
       <View style={ch.root}>
         {/* Header */}
-        <View style={ch.header}>
+        <View style={[ch.header, { paddingTop: insets.top + S.md }]}>
           <TouchableOpacity style={ch.backBtn} onPress={onClose}>
             <Text style={ch.backIcon}>←</Text>
           </TouchableOpacity>
           <View style={ch.headerInfo}>
-            <Text style={ch.headerTitle}>{team ? team.name : 'EKİP CHATI'}</Text>
-            <Text style={ch.headerSub}>{team ? team.district : ''} • Online</Text>
+            <Text style={ch.headerTitle}>{team ? team.name : t('chat.title')}</Text>
+            <View style={ch.headerStatusRow}>
+              <View style={ch.onlineDot} />
+              <Text style={ch.headerSub}>{team ? team.district : ''} • {t('chat.online_status', { count: 3 })}</Text>
+            </View>
           </View>
         </View>
 
         {/* Messages */}
         <KeyboardAvoidingView
           style={ch.kvRoot}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
           <FlatList
@@ -101,13 +128,25 @@ export default function ChatSheet({ open, team, onClose, onSendMessage }) {
             onContentSizeChange={function() {
               if (listRef.current) listRef.current.scrollToEnd({ animated: false });
             }}
+            ListFooterComponent={typing ? (
+              <View style={ch.typingRow}>
+                <View style={ch.typingAvatar}>
+                  <Text style={ch.typingAvatarTxt}>{typing[0]}</Text>
+                </View>
+                <View style={ch.typingBubble}>
+                  <View style={ch.typingDot} />
+                  <View style={[ch.typingDot, ch.typingDotMid]} />
+                  <View style={ch.typingDot} />
+                </View>
+              </View>
+            ) : null}
           />
 
           {/* Input */}
-          <View style={ch.inputRow}>
+          <View style={[ch.inputRow, { paddingBottom: Math.max(insets.bottom + S.xs, S.sm) }]}>
             <TextInput
               style={ch.input}
-              placeholder="Mesaj yaz..."
+              placeholder={t('chat.input_placeholder')}
               placeholderTextColor={C.textDim}
               value={input}
               onChangeText={setInput}
@@ -133,7 +172,7 @@ const ch = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
   header: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: S.screen, paddingTop: 56, paddingBottom: S.md,
+    paddingHorizontal: S.screen, paddingBottom: S.md,
     borderBottomWidth: 1, borderBottomColor: C.border,
     backgroundColor: C.bgPanel,
   },
@@ -141,7 +180,9 @@ const ch = StyleSheet.create({
   backIcon: { color: C.text, fontSize: 22, fontWeight: '700' },
   headerInfo: { flex: 1 },
   headerTitle: { color: C.text, fontSize: F.md, fontWeight: '800' },
-  headerSub: { color: C.textDim, fontSize: F.xs, marginTop: 2 },
+  headerStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  onlineDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.green },
+  headerSub: { color: C.textDim, fontSize: F.xs },
   kvRoot: { flex: 1 },
   msgList: { paddingHorizontal: S.screen, paddingTop: S.md, paddingBottom: S.sm },
   rowRight: { alignItems: 'flex-end', marginBottom: S.sm },
@@ -184,4 +225,11 @@ const ch = StyleSheet.create({
   },
   sendBtnDisabled: { backgroundColor: C.bgCard2 },
   sendIcon: { color: '#000', fontSize: F.md, fontWeight: '900' },
+  // Typing indicator
+  typingRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: S.sm, paddingLeft: 0 },
+  typingAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: C.bgCard2, alignItems: 'center', justifyContent: 'center' },
+  typingAvatarTxt: { color: C.textDim, fontSize: F.xs, fontWeight: '700' },
+  typingBubble: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: C.bgCard, borderRadius: 16, borderBottomLeftRadius: 4, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: C.border },
+  typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.textDim },
+  typingDotMid: { opacity: 0.6 },
 });

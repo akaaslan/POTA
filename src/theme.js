@@ -17,6 +17,11 @@ export const C = {
   green: '#4ADE80',
   red: '#F87171',
   yellow: '#FBBF24',
+  blue: '#00D4FF',
+  purple: '#8B5CF6',
+  blueGlow: 'rgba(0,212,255,0.15)',
+  limeGlow: 'rgba(200,240,0,0.1)',
+  purpleGlow: 'rgba(139,92,246,0.15)',
   overlay: 'rgba(0,0,0,0.72)',
   overlayLight: 'rgba(0,0,0,0.45)',
 };

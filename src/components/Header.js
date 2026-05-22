@@ -33,7 +33,7 @@ export default function Header() {
 var hd = StyleSheet.create({
   root: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: S.screen, paddingTop: 6, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: C.border, backgroundColor: C.bgPanel },
   logoWrap: { gap: 1 },
-  logo: { color: C.lime, fontSize: 24, fontWeight: '900', letterSpacing: 4 },
+  logo: { color: C.lime, fontSize: 24, fontWeight: '900', letterSpacing: 4, fontStyle: 'italic' },
   sub: { color: C.textDim, fontSize: 9, fontWeight: '700', letterSpacing: 2.5 },
   right: { flexDirection: 'row', alignItems: 'center', gap: S.sm },
   bell: { position: 'relative', padding: 8 },

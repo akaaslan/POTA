@@ -2,11 +2,12 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { C, F, R, S } from '../theme';
+import { t } from '../i18n';
 
-const POSITIONS = ['Oyun Kurucu', 'Kanat', 'Uzun Adam', 'Şüt Oyuncusu', 'Pivi'];
-const ARCHETYPES = ['Slasher', 'Nişancı', 'Kale Bekçi', 'Playmaker', 'Savunma Duvarı'];
-const EXPERIENCES = ['Acemi', 'Orta Seviye', 'Yarı-Pro', 'Pro-Am', 'Elit'];
-const DISTRICTS = ['Kadıköy', 'Beşiktaş', 'Şişli', 'Üsküdar', 'Fatih', 'Bağcılar', 'Zeytinburnu', 'Sarıyer', 'Diğer'];
+var POSITIONS   = t('profileEdit.positions');
+var ARCHETYPES  = t('profileEdit.archetypes');
+var EXPERIENCES = t('profileEdit.levels');
+var DISTRICTS   = t('profileEdit.districts');
 
 function FieldLabel({ children }) {
   return <Text style={ob.label}>{children}</Text>;
@@ -45,14 +46,14 @@ export default function OnboardingScreen({ draft, onChange, onSubmit, submitting
       <ScrollView style={ob.root} contentContainerStyle={ob.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={ob.hero}>
           <View style={ob.heroBall}><Text style={ob.heroBallTxt}>🏀</Text></View>
-          <Text style={ob.heroTitle}>POTA'YA HOŞ GELDİN</Text>
-          <Text style={ob.heroSub}>İstanbul sokaklarının en iyi{'\n'}pickup basketball platformu.</Text>
+          <Text style={ob.heroTitle}>{t('onboarding.hero_title')}</Text>
+          <Text style={ob.heroSub}>{t('onboarding.hero_sub')}</Text>
         </View>
         <View style={ob.formCard}>
-          <FieldGroup label="SOKAK TAKINMAZI">
+          <FieldGroup label={t('onboarding.field_nickname')}>
             <TextInput
               style={ob.input}
-              placeholder="örn. Kral_34, Şimşek, Ejder..."
+              placeholder={t('onboarding.placeholder_nickname')}
               placeholderTextColor={C.textDim}
               value={draft.nickname}
               onChangeText={function(v) { set('nickname', v); }}
@@ -60,13 +61,13 @@ export default function OnboardingScreen({ draft, onChange, onSubmit, submitting
               maxLength={20}
             />
           </FieldGroup>
-          <FieldGroup label="MAHALLENİ SEÇ">
+          <FieldGroup label={t('onboarding.field_district')}>
             <ChipRow options={DISTRICTS} selected={draft.district} onSelect={function(v) { set('district', v); }} />
           </FieldGroup>
-          <FieldGroup label="FORMA NUMARASI">
+          <FieldGroup label={t('onboarding.field_jersey')}>
             <TextInput
               style={[ob.input, ob.inputNarrow]}
-              placeholder="örn. 23"
+              placeholder={t('onboarding.placeholder_jersey')}
               placeholderTextColor={C.textDim}
               value={draft.jerseyNumber}
               onChangeText={function(v) { set('jerseyNumber', v); }}
@@ -74,19 +75,19 @@ export default function OnboardingScreen({ draft, onChange, onSubmit, submitting
               maxLength={3}
             />
           </FieldGroup>
-          <FieldGroup label="POZİSYON">
+          <FieldGroup label={t('onboarding.field_position')}>
             <ChipRow options={POSITIONS} selected={draft.position} onSelect={function(v) { set('position', v); }} />
           </FieldGroup>
-          <FieldGroup label="OYUNCU TİPİ">
+          <FieldGroup label={t('onboarding.field_archetype')}>
             <ChipRow options={ARCHETYPES} selected={draft.archetype} onSelect={function(v) { set('archetype', v); }} />
           </FieldGroup>
-          <FieldGroup label="SEVİYE">
+          <FieldGroup label={t('onboarding.field_level')}>
             <ChipRow options={EXPERIENCES} selected={draft.experience} onSelect={function(v) { set('experience', v); }} />
           </FieldGroup>
-          <FieldGroup label="BİO  (opsiyonel)">
+          <FieldGroup label={t('onboarding.field_bio')}>
             <TextInput
               style={[ob.input, ob.textarea]}
-              placeholder="Kendini kısaca tanıt..."
+              placeholder={t('onboarding.placeholder_bio')}
               placeholderTextColor={C.textDim}
               value={draft.bio}
               onChangeText={function(v) { set('bio', v); }}
@@ -97,7 +98,7 @@ export default function OnboardingScreen({ draft, onChange, onSubmit, submitting
           </FieldGroup>
         </View>
         <TouchableOpacity style={[ob.submitBtn, submitting && ob.submitDim]} onPress={onSubmit} activeOpacity={0.85} disabled={!!submitting}>
-          <Text style={ob.submitTxt}>{submitting ? 'GİRİLİYOR...' : "POTA'YA GİR  →"}</Text>
+          <Text style={ob.submitTxt}>{submitting ? t('onboarding.submit_loading') : t('onboarding.submit_default')}</Text>
         </TouchableOpacity>
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -121,10 +122,10 @@ const ob = StyleSheet.create({
   textarea: { height: 80, paddingTop: 14 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm },
   chip: { paddingHorizontal: S.md, paddingVertical: 8, borderRadius: R.full, backgroundColor: C.bgCard2, borderWidth: 1, borderColor: C.border },
-  chipActive: { backgroundColor: 'rgba(200,240,0,0.12)', borderColor: C.lime },
+  chipActive: { backgroundColor: 'rgba(255,91,0,0.12)', borderColor: C.orange },
   chipTxt: { color: C.textDim, fontSize: F.xs, fontWeight: '700' },
-  chipTxtActive: { color: C.lime },
-  submitBtn: { backgroundColor: C.lime, borderRadius: R.lg, paddingVertical: 16, alignItems: 'center', marginBottom: S.md },
+  chipTxtActive: { color: C.orange },
+  submitBtn: { backgroundColor: C.orange, borderRadius: R.lg, paddingVertical: 16, alignItems: 'center', marginBottom: S.md },
   submitDim: { opacity: 0.6 },
-  submitTxt: { color: '#000', fontSize: F.md, fontWeight: '900', letterSpacing: 2 },
+  submitTxt: { color: '#fff', fontSize: F.md, fontWeight: '900', letterSpacing: 2 },
 });

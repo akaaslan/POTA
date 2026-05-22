@@ -16,8 +16,9 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.knasln.pota",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0D0D0F",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -27,7 +28,21 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
-    ]
+      "expo-router",
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "AIzaSyDkk9xmxjAS0BMU9ym4_e6LTdBlArakEnI",
+          "iosGoogleMapsApiKey": "AIzaSyDkk9xmxjAS0BMU9ym4_e6LTdBlArakEnI"
+        }
+      ],
+      "expo-image"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b1e9474a-1b44-417c-95da-f0cffae2b014"
+      }
+    }
   }
 }

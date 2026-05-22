@@ -51,3 +51,13 @@ export function useCreateMatch() {
     },
   });
 }
+
+export function useReportScore() {
+  var qc = useQueryClient();
+  return useMutation({
+    mutationFn: function(payload) { return matchService.reportScore(payload.matchId, payload.outcome); },
+    onSuccess: function() {
+      qc.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+}

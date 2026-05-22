@@ -7,6 +7,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { api } from '../api/client';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+var SESSION_KEY = '@pota_session';
 import {
   MOCK_PROFILE,
   MOCK_MATCHES,
@@ -37,7 +39,14 @@ var _store = {
 export var authService = {
   // TODO: api.get('/auth/session')
   async getSession() {
-    if (api.isMock()) return _delay(_store.session, 200);
+    if (api.isMock()) {
+      if (_store.session) return _delay(_store.session, 100);
+      try {
+        var raw = await AsyncStorage.getItem(SESSION_KEY);
+        if (raw) { _store.session = JSON.parse(raw); return _store.session; }
+      } catch(e) {}
+      return null;
+    }
     return api.get('/auth/session');
   },
   // TODO: api.post('/auth/signin', profile)
@@ -45,6 +54,7 @@ export var authService = {
     if (api.isMock()) {
       _store.profile = Object.assign({}, MOCK_PROFILE, profile);
       _store.session = { id: 'user-' + Date.now(), email: 'player@pota.app', profile: _store.profile };
+      AsyncStorage.setItem(SESSION_KEY, JSON.stringify(_store.session)).catch(function() {});
       return _delay(_store.session, 450);
     }
     return api.post('/auth/signin', profile);
@@ -55,6 +65,7 @@ export var authService = {
       _store.session = null;
       _store.joinedMatchIds = [];
       _store.joinedTeamIds = [];
+      await AsyncStorage.removeItem(SESSION_KEY).catch(function() {});
       return _delay(null, 200);
     }
     return api.post('/auth/signout');
@@ -148,6 +159,13 @@ export var matchService = {
   },
   isJoined: function(matchId) {
     return _store.joinedMatchIds.indexOf(matchId) !== -1;
+  },
+  // TODO: api.post('/matches/:id/score')
+  async reportScore(matchId, outcome) {
+    if (api.isMock()) {
+      return _delay({ success: true, matchId: matchId, outcome: outcome }, 300);
+    }
+    return api.post('/matches/' + matchId + '/score', { outcome: outcome });
   },
 };
 

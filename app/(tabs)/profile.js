@@ -1,13 +1,41 @@
 import React, { useState } from 'react';
 import { Alert } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { useProfileFeed } from '../../src/hooks/useProfile';
 import { useUIStore } from '../../src/store/ui';
+import { useAuthStore } from '../../src/store/auth';
+import { authService } from '../../src/services';
 import ProfileScreen from '../../src/screens/ProfileScreen';
+import { t } from '../../src/i18n';
 
 export default function ProfileTab() {
   var result = useProfileFeed();
   var openSheet = useUIStore(function(s) { return s.openSheet; });
+  var clearSession = useAuthStore(function(s) { return s.clearSession; });
   var [historyExpanded, setHistoryExpanded] = useState(false);
+  var router = useRouter();
+  var qc = useQueryClient();
+
+  function handleLogout() {
+    Alert.alert(
+      t('profile.logout_title'),
+      t('profile.logout_msg'),
+      [
+        { text: t('profile.logout_cancel'), style: 'cancel' },
+        {
+          text: t('profile.logout_confirm'),
+          style: 'destructive',
+          onPress: async function() {
+            await authService.signOut();
+            clearSession();
+            qc.clear();
+            router.replace('/onboarding');
+          },
+        },
+      ]
+    );
+  }
 
   return (
     <ProfileScreen
@@ -16,20 +44,17 @@ export default function ProfileTab() {
       onToggleHistory={function() { setHistoryExpanded(function(v) { return !v; }); }}
       onOpenBadge={function(badge) {
         Alert.alert(
-          badge.label,
+          badge.label + (badge.active ? ' ✓' : ' 🔒'),
           badge.active
-            ? 'Bu rozet aktif. Sahada kazandın, maçlarda kanıtladın.'
-            : 'Bu rozeti kazanmak için daha fazla maça katıl.',
+            ? badge.description + '\n\nKazandın! Sahada ispat ettin.'
+            : (badge.description + '\n\n🔓 Kilidi Aç:\n' + (badge.unlockCondition || 'Daha fazla maça katıl.')),
           [{ text: 'Tamam' }]
         );
       }}
-      onUpgradePro={function() {
-        Alert.alert(
-          'PRO OL',
-          'Gelişmiş istatistikler, öncelikli saha erişimi ve daha fazlası için PRO aboneliğe geç.',
-          [{ text: 'İptal', style: 'cancel' }, { text: 'YÜKSELT' }]
-        );
-      }}
+      onUpgradePro={function() { openSheet('pro-upgrade'); }}
+      onOpenLeaderboard={function() { openSheet('leaderboard'); }}
+      onEditProfile={function() { openSheet('profile-edit'); }}
+      onLogout={handleLogout}
     />
   );
 }

@@ -18,3 +18,13 @@ export function useJoinTeam() {
     },
   });
 }
+
+export function useLeaveTeam() {
+  var qc = useQueryClient();
+  return useMutation({
+    mutationFn: function(teamId) { return teamService.leaveTeam(teamId); },
+    onSuccess: function() {
+      qc.invalidateQueries({ queryKey: ['team-feed'] });
+    },
+  });
+}
