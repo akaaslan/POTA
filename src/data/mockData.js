@@ -512,11 +512,11 @@ export var MOCK_TEAMS = [
 ];
 
 export var MOCK_NOTIFICATIONS = [
-  { id: 'notif-1', icon: '🏀', title: 'Maçka Elit 5v5 maçında 2 yer kaldı!', time: '3 dk önce', read: false },
-  { id: 'notif-2', icon: '⚡', title: "Boğaz Savunması seni takıma davet etti", time: '12 dk önce', read: false },
-  { id: 'notif-3', icon: '🏆', title: "Kral Yeşil ELİT rütbesine yükseldi", time: '30 dk önce', read: true },
-  { id: 'notif-4', icon: '📍', title: "Kadıköy Fırtınası - Beşiktaş Karanlığı: Yarın 21:00", time: '1 saat önce', read: true },
-  { id: 'notif-5', icon: '🔥', title: 'Üsküdar Meydanı maçına CANLI başladı', time: '2 saat önce', read: true },
+  { id: 'notif-1', icon: '🏀', title: 'Maçka Elit 5v5 maçında 2 yer kaldı!', time: '3 dk önce', read: false, type: 'match', relatedId: 'mac-1' },
+  { id: 'notif-2', icon: '⚡', title: "Boğaz Savunması seni takıma davet etti", time: '12 dk önce', read: false, type: 'team', relatedId: 'takim-1' },
+  { id: 'notif-3', icon: '🏆', title: "Kral Yeşil ELİT rütbesine yükseldi", time: '30 dk önce', read: true, type: 'activity' },
+  { id: 'notif-4', icon: '📍', title: "Kadıköy Fırtınası - Beşiktaş Karanlığı: Yarın 21:00", time: '1 saat önce', read: true, type: 'team', relatedId: 'takim-1' },
+  { id: 'notif-5', icon: '🔥', title: 'Üsküdar Meydanı maçına CANLI başladı', time: '2 saat önce', read: true, type: 'match', relatedId: 'mac-3' },
 ];
 
 export var MOCK_ACTIVITY = [

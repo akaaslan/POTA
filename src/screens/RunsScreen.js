@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity, TextInput, StyleSheet, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, F, R, S } from '../theme';
 import { ErrorState } from '../components/ScreenStates';
 import { t } from '../i18n';
@@ -90,6 +91,7 @@ function EmptyState({ hasFilters, onReset }) {
 }
 
 export default function RunsScreen({ data, activeFilters, onOpenMatch, onCreateRun, onOpenFilter, onClearFilters, onUpgradePro, refreshing, onRefresh, isError, onRetry }) {
+  var insets = useSafeAreaInsets();
   var [searchQuery, setSearchQuery] = useState('');
   var filters = activeFilters || { district: 'Tümü', skill: 'Tümü', format: 'Tümü' };
   var matches = data ? (data.matches || []) : null;
@@ -138,14 +140,26 @@ export default function RunsScreen({ data, activeFilters, onOpenMatch, onCreateR
         </View>
       </View>
       {isError ? (
-        <ErrorState message={t('runs.error')} onRetry={onRetry} />
+        <ScrollView
+          style={{ flex: 1 }}
+          refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={C.lime} colors={[C.lime]} />}
+          contentContainerStyle={{ flex: 1 }}
+        >
+          <ErrorState message={t('runs.error')} onRetry={onRetry} />
+        </ScrollView>
       ) : filtered === null ? (
         <View style={r.loading}>
           <Text style={r.loadingNum}>00</Text>
           <Text style={r.loadingTxt}>{t('runs.loading')}</Text>
         </View>
       ) : filtered.length === 0 ? (
-        <EmptyState hasFilters={hasFilters || searchQuery.length > 0} onReset={function() { setSearchQuery(''); onClearFilters(); }} />
+        <ScrollView
+          style={{ flex: 1 }}
+          refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={C.lime} colors={[C.lime]} />}
+          contentContainerStyle={{ flex: 1 }}
+        >
+          <EmptyState hasFilters={hasFilters || searchQuery.length > 0} onReset={function() { setSearchQuery(''); onClearFilters(); }} />
+        </ScrollView>
       ) : (
         <FlatList
           showsVerticalScrollIndicator={false}
@@ -185,7 +199,7 @@ export default function RunsScreen({ data, activeFilters, onOpenMatch, onCreateR
           }
         />
       )}
-      <TouchableOpacity style={r.fab} onPress={onCreateRun} activeOpacity={0.85}>
+      <TouchableOpacity style={[r.fab, { bottom: Math.max(insets.bottom, 14) + 10 }]} onPress={onCreateRun} activeOpacity={0.85}>
         <Text style={r.fabTxt}>+</Text>
       </TouchableOpacity>
     </View>

@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
-import { MOCK_MATCHES, MOCK_COURTS } from '../data/mockData';
-
-var COURTS = MOCK_COURTS;
+import { MOCK_COURTS } from '../data/mockData';
+import { useRunsFeed } from '../hooks/useMatches';
 
 var TIER_COLOR = {
   'Açık Saha':    '#4ADE80',
@@ -55,9 +55,23 @@ function CourtMarker({ court, isSelected, onPress }) {
 }
 
 export default function MapScreen({ onOpenMatch }) {
+  var insets = useSafeAreaInsets();
   var [selected, setSelected] = useState(null);
   var [userLocation, setUserLocation] = useState(null);
   var mapRef = useRef(null);
+  var matchFeed = useRunsFeed();
+  var liveMatches = (matchFeed.data && matchFeed.data.matches) || [];
+
+  // Augment MOCK_COURTS with real player counts and live status
+  var COURTS = MOCK_COURTS.map(function(court) {
+    var courtMatches = liveMatches.filter(function(m) { return m.district === court.district; });
+    var totalPlayers = courtMatches.reduce(function(sum, m) { return sum + (m.playersJoined || 0); }, 0);
+    var hasLive = courtMatches.some(function(m) { return m.status === 'live'; });
+    return Object.assign({}, court, {
+      players: totalPlayers,
+      status: hasLive ? 'live' : courtMatches.length > 0 ? 'active' : null,
+    });
+  });
 
   useEffect(function() {
     Location.requestForegroundPermissionsAsync().then(function(res) {
@@ -171,9 +185,9 @@ export default function MapScreen({ onOpenMatch }) {
             </View>
             {/* Maçı Gör butonu */}
             {onOpenMatch ? (function() {
-              var courtMatch = MOCK_MATCHES.find(function(match) {
+              var courtMatch = liveMatches.find(function(match) {
                 return match.district === selected.district && match.status === 'live';
-              }) || MOCK_MATCHES.find(function(match) {
+              }) || liveMatches.find(function(match) {
                 return match.district === selected.district;
               });
               return courtMatch ? (
@@ -203,7 +217,7 @@ export default function MapScreen({ onOpenMatch }) {
 
       {/* Geri Dön FAB */}
       <TouchableOpacity
-        style={m.recenterBtn}
+        style={[m.recenterBtn, { bottom: Math.max(insets.bottom, 14) + 330 }]}
         onPress={function() {
           if (mapRef.current) mapRef.current.animateToRegion(ISTANBUL_REGION, 800);
         }}

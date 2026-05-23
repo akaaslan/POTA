@@ -15,8 +15,10 @@ import PlayerProfileSheet from '../screens/PlayerProfileSheet';
 import ActivitySheet from '../screens/ActivitySheet';
 import ProUpgradeSheet from '../screens/ProUpgradeSheet';
 import LeaderboardSheet from '../screens/LeaderboardSheet';
+import BadgeDetailSheet from '../screens/BadgeDetailSheet';
 import Toast from './Toast';
 import { t } from '../i18n';
+import { MOCK_MATCHES, MOCK_TEAMS } from '../data/mockData';
 
 export default function GlobalSheets() {
   var activeSheet  = useUIStore(function(s) { return s.activeSheet; });
@@ -41,6 +43,7 @@ export default function GlobalSheets() {
   var activeMatch  = activeSheet === 'match-detail' ? sheetPayload : null;
   var activeTeam   = activeSheet === 'team-detail'  ? sheetPayload : null;
   var activePlayer = activeSheet === 'player-profile' ? sheetPayload : null;
+  var activeBadge  = activeSheet === 'badge-detail'  ? sheetPayload : null;
   var chatTeam     = activeSheet === 'chat'
     ? (sheetPayload && sheetPayload.team ? sheetPayload.team : (teamFeed.data ? teamFeed.data.featuredTeam : null))
     : null;
@@ -108,7 +111,16 @@ export default function GlobalSheets() {
         notifications={notifResult.data || []}
         onClose={closeSheet}
         onMarkAllRead={function() { markAllRead.mutate(); }}
-        onNotifPress={function(notif) { closeSheet(); }}
+        onNotifPress={function(notif) {
+          closeSheet();
+          if (notif.type === 'match' && notif.relatedId) {
+            var match = MOCK_MATCHES.find(function(m) { return m.id === notif.relatedId; });
+            if (match) { setTimeout(function() { openSheet('match-detail', match); }, 300); }
+          } else if (notif.type === 'team' && notif.relatedId) {
+            var team = MOCK_TEAMS.find(function(tm) { return tm.id === notif.relatedId; });
+            if (team) { setTimeout(function() { openSheet('team-detail', team); }, 300); }
+          }
+        }}
       />
       <ProfileEditSheet
         open={activeSheet === 'profile-edit'}
@@ -120,7 +132,25 @@ export default function GlobalSheets() {
         player={activePlayer}
         onClose={closeSheet}
       />
-      <ActivitySheet open={activeSheet === 'activity'} onClose={closeSheet} onItemPress={function() { closeSheet(); }} />
+      <BadgeDetailSheet
+        badge={activeBadge}
+        onClose={closeSheet}
+      />
+      <ActivitySheet
+        open={activeSheet === 'activity'}
+        onClose={closeSheet}
+        onItemPress={function(item) {
+          closeSheet();
+          if (item.type === 'badge') {
+            setTimeout(function() {
+              openSheet('player-profile', { nickname: item.actor, district: item.district, tier: 'GOLD', ovr: 78, avatar: null });
+            }, 300);
+          } else {
+            var match = MOCK_MATCHES.find(function(m) { return m.district === item.district; });
+            if (match) { setTimeout(function() { openSheet('match-detail', match); }, 300); }
+          }
+        }}
+      />
       <ProUpgradeSheet
         open={activeSheet === 'pro-upgrade'}
         onClose={closeSheet}

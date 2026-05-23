@@ -71,7 +71,7 @@ function _sbMatchToApp(row, userId) {
     : (row.date_time || '');
   return {
     id:           row.id,
-    title:        ((court.short_name || court.name || 'SAHA') + ' ' + (row.format || '5V5')).toUpperCase(),
+    title:        row.title ? row.title.toUpperCase() : ((court.short_name || court.name || 'SAHA') + ' ' + (row.format || '5V5')).toUpperCase(),
     district:     court.district  || row.district || '',
     courtName:    court.name      || row.court_name || '',
     courtId:      row.court_id    || null,
@@ -261,26 +261,31 @@ export var matchService = {
     }
     var userId = await _getCurrentUserId();
     if (!userId) throw new Error('Oturum gerekli');
-    // Build scheduled_at from time string like 'Bugün 19:00'
+    // Build scheduled_at from dateTime + dayOffset
     var scheduledAt = null;
     if (data.dateTime) {
-      var timePart = data.dateTime.replace('Bugün ', '').trim();
+      var words = data.dateTime.trim().split(' ');
+      var timePart = words[words.length - 1]; // "19:00"
       var parts = timePart.split(':');
       if (parts.length === 2) {
         var d = new Date();
+        var offset = typeof data.dayOffset === 'number' ? data.dayOffset : 0;
+        d.setDate(d.getDate() + offset);
         d.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
         scheduledAt = d.toISOString();
       }
     }
     var matchInsert = {
-      court_id:    data.courtId || null,
-      format:      _FORMAT_RAW[data.format]  || 'N/A',
+      court_id:    data.courtId    || null,
+      format:      _FORMAT_RAW[data.format]    || 'N/A',
       skill_level: _SKILL_RAW[data.skillLevel] || 'ROOKİE',
       scheduled_at: scheduledAt,
       fee:         data.fee ? data.fee + ' TL' : 'Ücretsiz',
-      max_players: data.capacity || 10,
+      max_players: data.capacity   || 10,
       is_private:  !data.isPublic,
       created_by:  userId,
+      title:       data.title       || null,
+      description: data.description || null,
     };
     var { data: inserted, error } = await supabase
       .from('matches').insert(matchInsert)

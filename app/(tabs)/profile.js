@@ -43,13 +43,7 @@ export default function ProfileTab() {
       historyExpanded={historyExpanded}
       onToggleHistory={function() { setHistoryExpanded(function(v) { return !v; }); }}
       onOpenBadge={function(badge) {
-        Alert.alert(
-          badge.label + (badge.active ? ' ✓' : ' 🔒'),
-          badge.active
-            ? badge.description + '\n\nKazandın! Sahada ispat ettin.'
-            : (badge.description + '\n\n🔓 Kilidi Aç:\n' + (badge.unlockCondition || 'Daha fazla maça katıl.')),
-          [{ text: 'Tamam' }]
-        );
+        openSheet('badge-detail', badge);
       }}
       onUpgradePro={function() { openSheet('pro-upgrade'); }}
       onOpenLeaderboard={function() { openSheet('leaderboard'); }}

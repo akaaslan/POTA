@@ -17,6 +17,10 @@ export default function SquadTab() {
       isError={result.isError}
       onRetry={result.refetch}
       onOpenTeam={function(team) { openSheet('team-detail', team); }}
+      onBrowseTeams={function() {
+        var teams = result.data && result.data.teams;
+        if (teams && teams.length > 0) { openSheet('team-detail', teams[0]); }
+      }}
       onOpenChat={function() {
         var featuredTeam = result.data && result.data.featuredTeam;
         openSheet('chat', { team: featuredTeam });

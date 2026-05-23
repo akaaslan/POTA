@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
-  TouchableOpacity, Image, Switch,
+  TouchableOpacity, Image, Switch, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,8 +15,31 @@ var COURTS = MOCK_COURTS;
 
 var FORMAT_LABEL = { '3V3': '3v3 Yarı Saha', '5V5': '5v5 Tam Saha' };
 var LEVEL_LABEL  = { 'ROOKİE': 'Açık Saha', 'PRO-AM': 'Pro-Am', 'ELİT': 'Elit' };
-var TIMES     = ['18:00', '19:00', '20:00', '21:00', '22:00'];
-var FEES      = ['Ücretsiz', '10 TL', '20 TL', '30 TL'];
+function buildTimes() {
+  var times = [];
+  for (var h = 7; h <= 23; h++) {
+    times.push((h < 10 ? '0' : '') + h + ':00');
+    if (h < 23) times.push((h < 10 ? '0' : '') + h + ':30');
+  }
+  return times;
+}
+var TIMES = buildTimes(); // 07:00 … 23:00, her 30 dakikada bir
+var FEES  = ['Ücretsiz', '10 TL', '20 TL', '30 TL', '40 TL', '50 TL', '75 TL', '100 TL', 'Özel'];
+
+function buildDays() {
+  var labels = [];
+  var today = new Date();
+  var dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+  for (var i = 0; i < 5; i++) {
+    if (i === 0) { labels.push('Bugün'); continue; }
+    if (i === 1) { labels.push('Yarın'); continue; }
+    var d = new Date(today);
+    d.setDate(today.getDate() + i);
+    labels.push(dayNames[d.getDay()]);
+  }
+  return labels;
+}
+var DAYS = buildDays();
 var MAX_BY_FMT = { '3V3': 6, '5V5': 10 };
 
 var THUMB_D   = 22;
@@ -81,9 +104,13 @@ export default function CreateRunScreen() {
   var [format,   setFormat]   = useState('3V3');
   var [level,    setLevel]    = useState('ROOKİE');
   var [capacity, setCapacity] = useState(6);
-  var [timeIdx,  setTimeIdx]  = useState(1);
+  var [dayIdx,   setDayIdx]   = useState(0);
+  var [timeIdx,  setTimeIdx]  = useState(24); // 19:00
   var [feeIdx,   setFeeIdx]   = useState(0);
-  var [isPublic, setIsPublic] = useState(true);
+  var [isPublic,    setIsPublic]    = useState(true);
+  var [title,       setTitle]       = useState('');
+  var [description, setDescription] = useState('');
+  var [customFee,   setCustomFee]   = useState('');
 
   var maxPlayers = MAX_BY_FMT[format] || 6;
 
@@ -94,20 +121,27 @@ export default function CreateRunScreen() {
   }
 
   function handleCreate() {
-    var court   = COURTS.find(function(c) { return c.id === courtId; }) || COURTS[0];
-    var feeRaw  = FEES[feeIdx];
-    var fee     = feeRaw === 'Ücretsiz' ? null : feeRaw.replace(' TL', '');
+    var court      = COURTS.find(function(c) { return c.id === courtId; }) || COURTS[0];
+    var feeRaw     = FEES[feeIdx];
+    var fee        = feeRaw === 'Ücretsiz' ? null
+      : feeRaw === 'Özel' ? (customFee.trim() || null)
+      : feeRaw.replace(' TL', '');
+    var matchTitle = title.trim()
+      ? title.trim().toUpperCase()
+      : (court.name + ' ' + (FORMAT_LABEL[format] || format)).toUpperCase();
     createMatch.mutate({
-      title:      court.name + ' ' + (FORMAT_LABEL[format] || format),
-      courtId:    court.id,
-      courtName:  court.name,
-      district:   court.district,
-      format:     FORMAT_LABEL[format] || format,
-      skillLevel: LEVEL_LABEL[level]   || level,
-      capacity:   capacity,
-      dateTime:   'Bugün ' + TIMES[timeIdx],
-      fee:        fee,
-      isPublic:   isPublic,
+      title:       matchTitle,
+      courtId:     court.id,
+      courtName:   court.name,
+      district:    court.district,
+      format:      FORMAT_LABEL[format] || format,
+      skillLevel:  LEVEL_LABEL[level]   || level,
+      capacity:    capacity,
+      dayOffset:   dayIdx,
+      dateTime:    DAYS[dayIdx] + ' ' + TIMES[timeIdx],
+      fee:         fee,
+      isPublic:    isPublic,
+      description: description.trim() || null,
     }, {
       onSuccess: function() { showToast(t('createRun.success'), 'success'); router.back(); },
     });
@@ -204,6 +238,23 @@ export default function CreateRunScreen() {
         {/* ── Match Details header ── */}
         <Text style={[g.secTitle, g.secTitleBlock]}>{t('createRun.section_details')}</Text>
 
+        {/* ── Match Title ── */}
+        <View style={card.box}>
+          <Text style={card.label}>MAÇ İSMİ (OPSİYONEL)</Text>
+          <TextInput
+            style={inp.field}
+            placeholder={
+              (COURTS.find(function(c) { return c.id === courtId; }) || COURTS[0]).name +
+              ' — ' + (FORMAT_LABEL[format] || format)
+            }
+            placeholderTextColor={C.textMuted}
+            value={title}
+            onChangeText={setTitle}
+            maxLength={40}
+            returnKeyType="done"
+          />
+        </View>
+
         {/* ── Format ── */}
         <View style={card.box}>
           <Text style={card.label}>{t('createRun.format_label')}</Text>
@@ -263,31 +314,83 @@ export default function CreateRunScreen() {
           />
         </View>
 
-        {/* ── Time + Fee ── */}
-        <View style={tf.row}>
-          <TouchableOpacity
-            style={tf.halfCard}
-            onPress={function() { setTimeIdx((timeIdx + 1) % TIMES.length); }}
-            activeOpacity={0.8}
-          >
-              <Text style={card.label}>{t('createRun.time_label')}</Text>
-            <View style={tf.valRow}>
-              <Text style={tf.icon}>📅</Text>
-              <Text style={tf.val}>{TIMES[timeIdx]}</Text>
+        {/* ── Day + Time + Fee ── */}
+        {/* Day */}
+        <View style={card.box}>
+          <Text style={card.label}>{t('createRun.day_label') || 'GÜN'}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: S.sm }}>
+            <View style={tog.row}>
+              {DAYS.map(function(day, idx) {
+                var on = dayIdx === idx;
+                return (
+                  <TouchableOpacity
+                    key={day}
+                    style={[tog.btn, tog.btnFlex, on && tog.btnOn]}
+                    onPress={function() { setDayIdx(idx); }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[tog.txt, on && tog.txtOn]}>{day}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </TouchableOpacity>
+          </ScrollView>
+        </View>
 
-          <TouchableOpacity
-            style={tf.halfCard}
-            onPress={function() { setFeeIdx((feeIdx + 1) % FEES.length); }}
-            activeOpacity={0.8}
-          >
-              <Text style={card.label}>{t('createRun.fee_label')}</Text>
-            <View style={tf.valRow}>
-              <Text style={tf.icon}>💳</Text>
-              <Text style={tf.val}>{FEES[feeIdx]}</Text>
+        {/* ── Time ── */}
+        <View style={card.box}>
+          <Text style={card.label}>{t('createRun.time_label')}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: S.sm }}>
+            <View style={tog.row}>
+              {TIMES.map(function(time, idx) {
+                var on = timeIdx === idx;
+                return (
+                  <TouchableOpacity
+                    key={time}
+                    style={[tog.btn, on && tog.btnOn, { flex: 0, paddingHorizontal: 14 }]}
+                    onPress={function() { setTimeIdx(idx); }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[tog.txt, on && tog.txtOn, { fontSize: F.xs }]}>{time}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
-          </TouchableOpacity>
+          </ScrollView>
+        </View>
+
+        {/* ── Fee ── */}
+        <View style={card.box}>
+          <Text style={card.label}>{t('createRun.fee_label')}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: S.sm }}>
+            <View style={tog.row}>
+              {FEES.map(function(fee, idx) {
+                var on = feeIdx === idx;
+                return (
+                  <TouchableOpacity
+                    key={fee}
+                    style={[tog.btn, on && tog.btnOn, { flex: 0, paddingHorizontal: 14 }]}
+                    onPress={function() { setFeeIdx(idx); }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[tog.txt, on && tog.txtOn, { fontSize: F.xs }]}>{fee}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </ScrollView>
+          {FEES[feeIdx] === 'Özel' ? (
+            <TextInput
+              style={inp.field}
+              placeholder="Tutar gir (ör. 45)"
+              placeholderTextColor={C.textMuted}
+              keyboardType="numeric"
+              value={customFee}
+              onChangeText={setCustomFee}
+              maxLength={6}
+              returnKeyType="done"
+            />
+          ) : null}
         </View>
 
         {/* ── Privacy ── */}
@@ -303,6 +406,22 @@ export default function CreateRunScreen() {
             onValueChange={setIsPublic}
             trackColor={{ false: C.border, true: C.lime }}
             thumbColor={C.bg}
+          />
+        </View>
+
+        {/* ── Description ── */}
+        <View style={card.box}>
+          <Text style={card.label}>AÇIKLAMA (OPSİYONEL)</Text>
+          <TextInput
+            style={[inp.field, inp.textArea]}
+            placeholder="Maç hakkında kısa bir not... (ör. seviye beklentisi, ekipman, park yeri)"
+            placeholderTextColor={C.textMuted}
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={3}
+            maxLength={200}
+            textAlignVertical="top"
           />
         </View>
       </ScrollView>
@@ -490,6 +609,26 @@ var prv = StyleSheet.create({
   left:  { flex: 1 },
   title: { color: C.text, fontSize: F.sm, fontWeight: '900', letterSpacing: 1 },
   sub:   { color: C.textDim, fontSize: F.xs, marginTop: 3, fontWeight: '700' },
+});
+
+// ─── Input styles ───────────────────────────────────────────────────────────────
+var inp = StyleSheet.create({
+  field: {
+    marginTop: S.sm,
+    backgroundColor: C.bg,
+    borderRadius: R.md,
+    borderWidth: 1,
+    borderColor: C.border,
+    color: C.text,
+    fontSize: F.sm,
+    fontWeight: '700',
+    paddingHorizontal: S.md,
+    paddingVertical: S.sm,
+  },
+  textArea: {
+    minHeight: 80,
+    paddingTop: S.sm,
+  },
 });
 
 // ─── CTA bar styles ───────────────────────────────────────────────────────────

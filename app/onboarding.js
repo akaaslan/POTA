@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useUIStore } from '../src/store/ui';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../src/store/auth';
@@ -15,20 +15,21 @@ export default function OnboardingRoute() {
   var draft = useAuthStore(function(s) { return s.draft; });
   var setDraft = useAuthStore(function(s) { return s.setDraft; });
   var setSession = useAuthStore(function(s) { return s.setSession; });
+  var showToast = useUIStore(function(s) { return s.showToast; });
   var [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit() {
     if (!draft || !draft.nickname || !draft.district) {
-      Alert.alert('Eksik Bilgi', 'Takma adın ve bölgen zorunludur.');
+      showToast('Takma adın ve bölgen zorunludur.', 'warn');
       return;
     }
     if (!api.isMock()) {
       if (!draft.email || !draft.email.includes('@')) {
-        Alert.alert('Eksik Bilgi', 'Geçerli bir e-posta adresi girin.');
+        showToast('Geçerli bir e-posta adresi girin.', 'warn');
         return;
       }
       if (!draft.password || draft.password.length < 6) {
-        Alert.alert('Eksik Bilgi', 'Şifre en az 6 karakter olmalıdır.');
+        showToast('Şifre en az 6 karakter olmalıdır.', 'warn');
         return;
       }
     }
@@ -45,7 +46,7 @@ export default function OnboardingRoute() {
       router.replace('/(tabs)/');
     } catch (e) {
       var msg = (e && e.message) ? e.message : 'Kayıt oluşturulamadı. Tekrar dene.';
-      Alert.alert('Hata', msg);
+      showToast(msg, 'error');
     } finally {
       setSubmitting(false);
     }

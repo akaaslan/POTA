@@ -86,7 +86,7 @@ function TeamCard({ team, isFirst, onPress }) {
   );
 }
 
-export default function SquadScreen({ data, onOpenTeam, onOpenChat, onManageLineup, onOpenPlayer, refreshing, onRefresh, isError, onRetry }) {
+export default function SquadScreen({ data, onOpenTeam, onOpenChat, onManageLineup, onOpenPlayer, onBrowseTeams, refreshing, onRefresh, isError, onRetry }) {
   if (isError) {
     return <ErrorState message={t('squad.error')} onRetry={onRetry} />;
   }
@@ -101,7 +101,7 @@ export default function SquadScreen({ data, onOpenTeam, onOpenChat, onManageLine
       <View style={sq.emptyRoot}>
         <Text style={sq.emptyTitle}>{t('squad.no_team_title')}</Text>
         <Text style={sq.emptySub}>{t('squad.no_team_sub')}</Text>
-        <TouchableOpacity style={sq.emptyCta} activeOpacity={0.85}>
+        <TouchableOpacity style={sq.emptyCta} onPress={onBrowseTeams} activeOpacity={0.85}>
           <Text style={sq.emptyCtaTxt}>{t('squad.no_team_cta')}</Text>
         </TouchableOpacity>
       </View>

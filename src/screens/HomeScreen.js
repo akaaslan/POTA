@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, F, R, S } from '../theme';
 import { SkeletonList, ErrorState } from '../components/ScreenStates';
 import { t } from '../i18n';
@@ -162,6 +163,7 @@ function ProBanner({ onUpgrade }) {
 }
 
 export default function HomeScreen({ data, onOpenMatch, onOpenActivity, onCreateRun, onUpgradePro, refreshing, onRefresh, isError, onRetry }) {
+  var insets = useSafeAreaInsets();
   if (isError) {
     return <ErrorState message={t('home.error')} onRetry={onRetry} />;
   }
@@ -211,7 +213,7 @@ export default function HomeScreen({ data, onOpenMatch, onOpenActivity, onCreate
         <ProBanner onUpgrade={onUpgradePro} />
         <View style={{ height: 120 }} />
       </ScrollView>
-      <TouchableOpacity style={h.fab} onPress={onCreateRun} activeOpacity={0.85}>
+      <TouchableOpacity style={[h.fab, { bottom: Math.max(insets.bottom, 14) + 57 }]} onPress={onCreateRun} activeOpacity={0.85}>
         <Text style={h.fabTxt}>+</Text>
       </TouchableOpacity>
     </View>
