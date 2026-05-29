@@ -1,6 +1,6 @@
 # POTA — Codebase Context & Handover Document
 
-> **Son güncelleme:** 22 Mayıs 2026 (Supabase entegrasyonu tamamlandı)
+> **Son güncelleme:** 29 Mayıs 2026 (TypeScript tam geçiş tamamlandı)
 > Bu dosya her önemli prompt sonrası güncellenir. Başka bir cihazdan devam ederken bu dosyayı oku.
 
 ---
@@ -21,6 +21,7 @@ Tasarım dili: Koyu tema, NBA 2K oyunu estetiği (lime/turuncu, OVR kartı, roze
 | Routing | Expo Router | ~55.0.14 |
 | UI | React Native | 0.83.6 |
 | React | React | 19.2.0 |
+| **Dil** | **TypeScript (strict mode)** | **^5.x** |
 | Global State | Zustand | ^5.0.13 |
 | Server State | TanStack Query | ^5.100.11 |
 | Harita | react-native-maps | 1.27.2 |
@@ -32,74 +33,157 @@ Tasarım dili: Koyu tema, NBA 2K oyunu estetiği (lime/turuncu, OVR kartı, roze
 
 ---
 
+## 2b. TypeScript Yapılandırması
+
+**`tsconfig.json`** — `expo/tsconfig.base` extend eder:
+```json
+{
+  "strict": true,
+  "noImplicitAny": true,
+  "strictNullChecks": true,
+  "strictFunctionTypes": true,
+  "noUncheckedIndexedAccess": true,
+  "exactOptionalPropertyTypes": true,
+  "allowJs": true,
+  "checkJs": false
+}
+```
+
+**Path Aliases** (`@` prefix):
+| Alias | Hedef |
+|---|---|
+| `@types/*` | `src/types/*` |
+| `@models/*` | `src/models/*` |
+| `@state/*` | `src/state/*` |
+| `@infrastructure/*` | `src/infrastructure/*` |
+| `@domains/*` | `src/domains/*` |
+| `@lib/*` | `src/lib/*` |
+
+**Kural:** `supabase` tipi `SupabaseClient | null` — erişimde `supabase!` non-null assertion kullanılır (env var kontrolü sonrası).  
+**`checkJs: false`** — `mockData.js` gibi saf veri dosyaları tip kontrolü dışında tutulur.  
+**`allowJs: true`** — geriye dönük uyumluluk re-export `.js` dosyaları derlenir.
+
+---
+
 ## 3. Klasör Yapısı
 
 ```
 POTA/
-├── app/                        # Expo Router file-based routing
-│   ├── _layout.js              # Root layout (QueryClient, SafeAreaProvider, GlobalSheets)
-│   ├── index.js                # Splash screen → useBootstrap → yönlendirme
-│   ├── onboarding.js           # Yeni kullanıcı profil oluşturma
-│   ├── filter.js               # Filtre ekranı (slide_from_bottom modal)
-│   ├── create-run.js           # Maç oluşturma (slide_from_bottom, CreateRunScreen'e proxy)
+├── app/                        # Expo Router file-based routing (tümü .tsx)
+│   ├── _layout.tsx             # Root layout (QueryClient, SafeAreaProvider, GlobalSheets)
+│   ├── index.tsx               # Splash screen → useBootstrap → yönlendirme
+│   ├── onboarding.tsx          # Yeni kullanıcı profil oluşturma
+│   ├── filter.tsx              # Filtre ekranı (slide_from_bottom modal)
+│   ├── create-run.tsx          # Maç oluşturma (slide_from_bottom, CreateRunScreen'e proxy)
 │   └── (tabs)/
-│       ├── _layout.js          # Tab bar layout + AppHeader
-│       ├── index.js            # Home tab
-│       ├── runs.js             # Runs tab
-│       ├── map.js              # Map tab
-│       ├── squad.js            # Squad tab
-│       └── profile.js          # Profile tab
+│       ├── _layout.tsx         # Tab bar layout + AppHeader
+│       ├── index.tsx           # Home tab
+│       ├── runs.tsx            # Runs tab
+│       ├── map.tsx             # Map tab
+│       ├── squad.tsx           # Squad tab
+│       └── profile.tsx         # Profile tab
 ├── src/
-│   ├── api/
-│   │   └── client.js           # API istemci (MOCK_MODE=false, BASE_URL ayarı)
-│   ├── supabase.js             # Supabase istemci (createClient, AsyncStorage, autoRefreshToken)
-│   ├── components/
-│   │   ├── GlobalSheets.js     # Tüm modal sheet'leri tek noktadan yöneten bileşen
-│   │   ├── Header.js           # POTA logosu + bildirim zili
-│   │   ├── ScreenStates.js     # SkeletonCard, SkeletonList, ErrorState
-│   │   └── Toast.js            # Animated toast bildirimi
+│   ├── types/                  # ✅ Tüm TypeScript tip tanımları
+│   │   ├── common.ts           # ID, ISO8601, Nullable<T>, Maybe<T>, BootState, Toast
+│   │   ├── domain/
+│   │   │   ├── auth.ts         # Session, AuthState, SignInPayload, AuthStore
+│   │   │   ├── match.ts        # Match, MatchFilters, HomeFeed, CreateMatchPayload, FORMAT_LABEL, SKILL_LABEL
+│   │   │   ├── notification.ts # NotificationType, Notification
+│   │   │   ├── profile.ts      # Profile, ProfileOverview, PlayerStats, Badge, ProfileDraft
+│   │   │   └── squad.ts        # Team, RosterMember, TeamDetail
+│   │   ├── ui/
+│   │   │   ├── sheets.ts       # SheetName, SheetPayload (discriminated union), OpenSheet, CloseSheet
+│   │   │   └── store.ts        # UIState, UIActions, UIStore
+│   │   ├── api/
+│   │   │   └── responses.ts    # SupabaseProfileRow, SupabaseMatchRow, ApiResult<T>
+│   │   ├── navigation/
+│   │   │   └── routes.ts       # RootStackParamList, TabParamList
+│   │   └── index.ts            # Barrel export
+│   ├── models/                 # ✅ Domain iş mantığı (saf fonksiyonlar)
+│   │   ├── Match.ts            # DEFAULT_MATCH_FILTERS, isMatchLive, isMatchFull, applyMatchFilters
+│   │   ├── Notification.ts     # unreadCount, hasUnread, markAllAsRead
+│   │   ├── Profile.ts          # getDisplayName, sortBadgesByTier, draftToProfileFields
+│   │   ├── Team.ts             # isTeamFull, chemistryLabel
+│   │   └── index.ts            # Barrel export
+│   ├── infrastructure/         # ✅ Altyapı katmanı
+│   │   ├── storage.ts          # storageGet<T>, storageSet<T>, storageRemove (typed keys)
+│   │   ├── supabase.ts         # export const supabase: SupabaseClient | null
+│   │   ├── api/
+│   │   │   └── client.ts       # api.get/post/put/patch/del, api.isMock(), setAuthToken
+│   │   └── index.ts
+│   ├── state/                  # ✅ Zustand store'ları
+│   │   ├── auth.store.ts       # useAuthStore — session, bootState, draft
+│   │   ├── ui.store.ts         # useUIStore — activeSheet, activeFilters, toast
+│   │   └── index.ts
+│   ├── domains/                # ✅ Domain katmanı (servisler + hook'lar)
+│   │   ├── auth/
+│   │   │   ├── services.ts     # authService (getSession, signIn, signUp, signOut, signInWithGoogle)
+│   │   │   ├── hooks/
+│   │   │   │   └── useBootstrap.ts  # oturum kontrolü + router yönlendirme (bug fix: else branch)
+│   │   │   └── index.ts
+│   │   ├── match/
+│   │   │   ├── services.ts     # matchService (getHomeFeed, getFilteredMatches, joinMatch, …)
+│   │   │   ├── hooks/
+│   │   │   │   ├── useMatches.ts      # useHomeFeed, useRunsFeed, useJoinMatch, useLeaveMatch, …
+│   │   │   │   └── useCreateRunForm.ts # form state + buildMatchPayload()
+│   │   │   ├── components/
+│   │   │   │   └── CapacitySlider.tsx
+│   │   │   └── index.ts
+│   │   ├── notifications/
+│   │   │   ├── services.ts     # notificationService
+│   │   │   ├── hooks/
+│   │   │   │   └── useNotifications.ts # useNotifications, useNotificationsCount, useMarkAllRead
+│   │   │   └── index.ts
+│   │   ├── profile/
+│   │   │   ├── services.ts     # profileService
+│   │   │   ├── hooks/
+│   │   │   │   └── useProfile.ts # useProfileFeed
+│   │   │   └── index.ts
+│   │   └── squad/
+│   │       ├── services.ts     # squadService (+ teamService alias)
+│   │       ├── hooks/
+│   │       │   └── useTeams.ts # useTeamFeed, useJoinTeam, useLeaveTeam
+│   │       └── index.ts
+│   ├── lib/                    # ✅ Yardımcı kütüphane
+│   │   ├── helpers.ts          # delay<T>, getCurrentUserId, formatScheduledAt, buildScheduledAt
+│   │   ├── index.ts
+│   │   └── mock/
+│   │       ├── data.ts         # re-export from ../../data/mockData
+│   │       ├── store.ts        # MockStore interface + mockStore singleton
+│   │       └── index.ts
+│   ├── components/             # ✅ Paylaşılan UI bileşenleri (tümü .tsx)
+│   │   ├── GlobalSheets.tsx
+│   │   ├── Header.tsx
+│   │   ├── ScreenStates.tsx
+│   │   └── Toast.tsx
+│   ├── screens/                # ✅ Ekranlar (tümü .tsx)
+│   │   ├── HomeScreen.tsx, RunsScreen.tsx, MapScreen.tsx, SquadScreen.tsx, ProfileScreen.tsx
+│   │   ├── OnboardingScreen.tsx, CreateRunScreen.tsx, LoginScreen.tsx
+│   │   └── *Sheet.tsx (MatchDetail, TeamDetail, Chat, Notifications, ProfileEdit, …)
 │   ├── constants.js            # DISTRICTS, SKILLS, FORMATS, POSITIONS, ARCHETYPES, EXPERIENCES
 │   ├── data/
-│   │   └── mockData.js         # MOCK_COURTS (tek kaynak), MOCK_PROFILE, MOCK_BADGES, MOCK_MATCHES, MOCK_TEAMS, MOCK_NOTIFICATIONS
-│   ├── hooks/
-│   │   ├── useBootstrap.js     # Oturum kontrolü, router yönlendirme
-│   │   ├── useMatches.js       # useHomeFeed, useRunsFeed, useJoinMatch, useLeaveMatch, useCreateMatch, useReportScore
-│   │   ├── useTeams.js         # useTeamFeed, useJoinTeam, useLeaveTeam
-│   │   ├── useProfile.js       # useProfileFeed
-│   │   └── useNotifications.js # useNotifications, useNotificationsCount, useMarkAllRead
+│   │   └── mockData.js         # MOCK_COURTS (10 saha), MOCK_PROFILE, MOCK_MATCHES, MOCK_TEAMS, MOCK_NOTIFICATIONS
 │   ├── i18n/
-│   │   ├── index.js            # t() fonksiyonu — nokta-notasyonu ile tr.json'dan çevirir
+│   │   ├── index.js            # t() fonksiyonu
 │   │   └── tr.json             # Tüm UI string'leri Türkçe
-│   ├── screens/
-│   │   ├── HomeScreen.js       # Ana sayfa: hero card + aktivite feed + yakın maçlar
-│   │   ├── RunsScreen.js       # Maç listesi: arama + filtre pill'leri + FlatList
-│   │   ├── MapScreen.js        # react-native-maps, PROVIDER_GOOGLE, saha marker'ları
-│   │   ├── SquadScreen.js      # Takım listesi, featured takım, roster görüntüleyici
-│   │   ├── ProfileScreen.js    # OVR kartı, istatistik barları, rozetler
-│   │   ├── OnboardingScreen.js # Yeni kullanıcı profil formu
-│   │   ├── MatchDetailSheet.js # Maç detayı modal (katıl/ayrıl, skor raporu)
-│   │   ├── TeamDetailSheet.js  # Takım detayı modal (katıl, chat, davet)
-│   │   ├── ChatSheet.js        # Basit takım sohbet modal (mock mesajlar)
-│   │   ├── NotificationsSheet.js # Bildirimler modal
-│   │   ├── ProfileEditSheet.js # Profil düzenleme modal (live preview)
-│   │   ├── PlayerProfileSheet.js # Başka oyuncu profili modal
-│   │   ├── ActivitySheet.js    # Global aktivite akışı modal
-│   │   ├── LeaderboardSheet.js # Sıralama tablosu modal (OVR/Galibiyet/%)
-│   │   ├── ProUpgradeSheet.js  # Pro üyelik tanıtım ve satın alma modal
-│   │   └── CreateRunScreen.js  # Yeni maç oluşturma ekranı (tam ekran)
-│   ├── services/
-│   │   └── index.js            # authService, matchService, teamService, profileService, notificationService
-│   ├── store/
-│   │   ├── auth.js             # Zustand: session, bootState, draft
-│   │   └── ui.js               # Zustand: activeSheet, sheetPayload, activeFilters, toast
-│   └── theme.js                # C (renkler), F (font boyutları), R (border-radius), S (spacing)
-├── App.js                      # ⚠️ KULLANILMIYOR — eski monolitik sürüm, referans olarak tutulmuş
-├── .env                        # Gerçek ortam değişkenleri (git'e commit edilmez!)
-├── .env.example                # Env şablonu (git'e commit edilir)
-├── app.config.js               # GOOGLE_MAPS_API_KEY env değişkeni enjeksiyonu
-├── app.json                    # Expo konfigürasyonu, bundle ID, EAS project ID
+│   └── theme.js                # C (renkler), F (font), R (radius), S (spacing)
+│
+│   # ── Geriye dönük uyumluluk re-export'ları (silinmedi) ──────────────────
+│   ├── src/hooks/*.js          # → @domains/*/hooks/* re-export (eski import yolları için)
+│   ├── src/store/auth.js       # → @state/auth.store re-export
+│   ├── src/store/ui.js         # → @state/ui.store re-export
+│   ├── src/services/index.js   # → domain services re-export
+│   ├── src/api/client.js       # → @infrastructure/api/client re-export
+│   └── src/supabase.js         # → @infrastructure/supabase re-export
+│
+├── tsconfig.json               # ✅ strict, noImplicitAny, strictNullChecks, noUncheckedIndexedAccess
+├── babel.config.js             # .ts/.tsx extensions + @types/@models path aliases
+├── App.js                      # ⚠️ KULLANILMIYOR — eski monolitik sürüm
+├── .env                        # Gerçek ortam değişkenleri (git'e commit edilmez)
+├── .env.example                # Env şablonu
+├── app.config.js               # GOOGLE_MAPS_API_KEY env enjeksiyonu
+├── app.json                    # Expo konfigürasyonu
 ├── eas.json                    # EAS Build profilleri
-├── babel.config.js             # babel-preset-expo
 ├── index.js                    # Entry point → expo-router/entry
 └── package.json
 ```
@@ -135,29 +219,32 @@ app/index.js (Splash)
 
 ### Zustand Store'ları
 
-**`useAuthStore`** (`src/store/auth.js`):
-```
-session       — { id, email, profile } | null
-bootState     — 'idle' | 'loading' | 'guest' | 'ready'
-draft         — profil oluşturma formu nesnesi
+**`useAuthStore`** (`src/state/auth.store.ts`):
+```typescript
+session:       Nullable<Session>   — { id, email, profile } | null
+bootState:     BootState           — 'idle' | 'loading' | 'guest' | 'ready'
+draft:         Nullable<ProfileDraft>
 setSession()  — session'ı set eder, bootState → 'ready'
 clearSession() — session'ı temizler, bootState → 'guest'
 setDraft()
 setBootState()
 ```
+*Eski yol:* `src/store/auth.js` → re-export olarak korundu.
 
-**`useUIStore`** (`src/store/ui.js`):
-```
-activeSheet   — string | null  (açık sheet'in adı)
-sheetPayload  — any | null     (sheet'e gönderilen veri)
-activeFilters — { district, skill, format }
-toast         — { message, type } | null
+**`useUIStore`** (`src/state/ui.store.ts`):
+```typescript
+activeSheet:   SheetName | null
+sheetPayload:  SheetPayload | null  (discriminated union — 10 sheet tipi)
+activeFilters: MatchFilters         — { district, skill, format }
+toast:         Toast | null         — { message, type: ToastType }
 openSheet(name, payload)
 closeSheet()
 setFilters(filters)
+clearFilters()
 showToast(message, type)   — 3.2 saniye sonra otomatik kapanır
 hideToast()
 ```
+*Eski yol:* `src/store/ui.js` → re-export olarak korundu.
 
 ### TanStack Query Keys
 | Key | Hook | Açıklama |
@@ -172,7 +259,7 @@ hideToast()
 
 ## 6. Global Sheets Sistemi
 
-`GlobalSheets.js` — `app/_layout.js` içinde render edilir, tüm uygulamanın üstünde her zaman hazır.  
+`GlobalSheets.tsx` — `app/_layout.tsx` içinde render edilir, tüm uygulamanın üstünde her zaman hazır.  
 `useUIStore.openSheet(name, payload)` çağrısıyla herhangi bir ekrandan açılır.
 
 | Sheet Adı | Bileşen | Payload |
@@ -191,26 +278,27 @@ hideToast()
 
 ## 7. Servis Katmanı
 
-**`src/api/client.js`**:
-- `MOCK_MODE = true` → backend hazır olunca `false` yap
-- `BASE_URL = 'https://api.pota.app/v1'` → gerçek endpoint ile değiştir
-- Bearer token: `setAuthToken(token)` / `clearAuthToken()`
-- `api.isMock()`, `api.get()`, `api.post()`, `api.put()`, `api.patch()`, `api.del()`
+**`src/infrastructure/api/client.ts`**:
+- `MOCK_MODE = false` → backend hazır olunca değiştir
+- `BASE_URL = 'https://api.pota.app/v1'`
+- `let _authToken: string | null`
+- `api.isMock()`, `api.get<T>()`, `api.post<T>()`, `api.put<T>()`, `api.patch<T>()`, `api.del<T>()`
+- *Eski yol:* `src/api/client.js` → re-export
 
-**`src/services/index.js`** — in-memory `_store` nesnesi mock veriyi yönetir:
+**Domain servisler** (`src/domains/*/services.ts`):
 
-| Servis | Metodlar |
-|---|---|
-| `authService` | `getSession()`, `signInMock(profile)`, `signUp(email, password, profileData)`, `signOut()` |
-| `matchService` | `getHomeFeed()`, `getNearbyMatches()`, `getFilteredMatches(filters)`, `createMatch(data)`, `joinMatch(id)`, `leaveMatch(id)`, `isJoined(id)`, `reportScore(id, outcome)` |
-| `teamService` | `getFeaturedTeams()`, `getTeamById(id)`, `joinTeam(id)`, `leaveTeam(id)`, `isJoined(id)` |
-| `profileService` | `createDefaultProfileDraft()`, `getProfileOverview(profile)`, `updateProfile(updates)` |
-| `notificationService` | `getNotifications()`, `markAllRead()`, `getUnreadCount()` |
+| Servis | Dosya | Metodlar |
+|---|---|---|
+| `authService` | `domains/auth/services.ts` | `getSession()`, `signInMock(profile?)`, `signUp(email, password, draft)`, `signIn(email, password)`, `signInWithGoogle()`, `signOut()` |
+| `matchService` | `domains/match/services.ts` | `getHomeFeed()`, `getNearbyMatches()`, `getFilteredMatches(filters)`, `createMatch(data)`, `joinMatch(id)`, `leaveMatch(id)`, `isJoined(id)`, `reportScore(id, outcome)` |
+| `squadService` | `domains/squad/services.ts` | `getFeaturedTeams()`, `getTeamById(id)`, `joinTeam(id)`, `leaveTeam(id)`, `isJoined(id)` |
+| `profileService` | `domains/profile/services.ts` | `createDefaultProfileDraft()`, `getProfileOverview(draft?)`, `updateProfile(updates)` |
+| `notificationService` | `domains/notifications/services.ts` | `getNotifications()`, `markAllRead()`, `getUnreadCount()` |
 
-**Mock mod (`MOCK_MODE=true`):** Her metod `_store` in-memory nesnesinden döner, `_delay()` ile yapay gecikme eklenir.  
-**Real mod (`MOCK_MODE=false`):** Supabase sorguları çalışır. `_sbMatchToApp()` helper'ı Supabase satırını app shape'ine dönüştürür.  
+**Mock mod (`MOCK_MODE=true`):** Servisler `src/lib/mock/store.ts` → `mockStore` singleton'ından döner.  
+**Real mod (`MOCK_MODE=false`):** Supabase sorguları çalışır. `_sbMatchToApp()` satırı app shape'ine çevirir.  
 Session AsyncStorage key (yalnızca mock): `@pota_session`  
-Real modda session Supabase `auth.getSession()` üzerinden yönetilir.
+Real modda session `supabase.auth.getSession()` üzerinden yönetilir.
 
 ---
 
@@ -392,6 +480,20 @@ production:   AAB (App Bundle)
 ### ⚠️ App.js Kullanılmıyor
 `App.js` projenin kökünde var ama Expo Router'ın `app/` dizini öncelikli. Entry point `index.js` → `expo-router/entry`. `App.js` eski monolitik versiyon; `BottomTabs` ve `CreateRunSheet` gibi var olmayan bileşenlere başvuruyor. **Silinmedi çünkü referans olarak tutuluyor.**
 
+### ✅ TypeScript Tam Geçiş (Tamamlandı — 29 Mayıs 2026)
+- `tsconfig.json` oluşturuldu: `strict`, `noImplicitAny`, `strictNullChecks`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
+- Path aliases: `@types`, `@models`, `@state`, `@infrastructure`, `@domains`, `@lib`
+- `babel.config.js` güncellendi: `.ts`/`.tsx` extensions, path alias'lar eklendi
+- `src/types/` tamamlandı: common, domain/*, ui/*, api/responses, navigation/routes
+- `src/models/` tamamlandı: Match, Profile, Team, Notification
+- `src/infrastructure/` oluşturuldu: supabase.ts, storage.ts, api/client.ts
+- `src/state/` oluşturuldu: auth.store.ts, ui.store.ts
+- `src/domains/` oluşturuldu: auth, match, notifications, profile, squad (services + hooks)
+- `src/lib/` güncellendi: helpers.ts, mock/store.ts (MockStore interface)
+- Tüm bileşenler, ekranlar, app route'ları `.tsx` olarak yeniden adlandırıldı
+- `useBootstrap.ts` — fallthrough bug düzeltildi (else branch eksikti)
+- Geriye dönük uyumluluk: `src/hooks/*.js`, `src/store/*.js`, `src/services/index.js` → re-export
+
 ### ✅ Supabase Entegrasyonu (Tamamlandı — 22 Mayıs 2026)
 - `@supabase/supabase-js` kurulu, `src/supabase.js` oluşturuldu
 - `MOCK_MODE = false` — uygulama artık gerçek Supabase veritabanına yazıyor
@@ -497,7 +599,34 @@ Maç yoksa courtId, MOCK_COURTS'tan fallback ile çözülür.
 
 ---
 
-## 17. Bugün Yapılan Değişiklikler (22 Mayıs 2026)
+## 17. Değişiklik Günlüğü
+
+### 29 Mayıs 2026 — TypeScript Tam Geçiş
+
+| # | Değişiklik | Dosya(lar) |
+|---|---|---|
+| 1 | `tsconfig.json` oluşturuldu (strict mode) | `tsconfig.json` |
+| 2 | `babel.config.js` güncellendi (.ts/.tsx + alias) | `babel.config.js` |
+| 3 | `src/types/` tamamlandı (common, domain, ui, api, navigation) | yeni dosyalar |
+| 4 | `src/models/` tamamlandı (Match, Profile, Team, Notification) | yeni dosyalar |
+| 5 | Infrastructure katmanı oluşturuldu | `src/infrastructure/*.ts` |
+| 6 | State store'ları TypeScript'e geçirildi | `src/state/auth.store.ts`, `ui.store.ts` |
+| 7 | Domain servisler TypeScript'e geçirildi | `src/domains/*/services.ts` |
+| 8 | Domain hook'lar TypeScript'e geçirildi (arrow fn, typed mutations) | `src/domains/*/hooks/*.ts` |
+| 9 | `useBootstrap` fallthrough bug düzeltildi | `domains/auth/hooks/useBootstrap.ts` |
+| 10 | `useCreateRunForm` TypeScript'e geçirildi | `domains/match/hooks/useCreateRunForm.ts` |
+| 11 | `CapacitySlider.ts` → `.tsx` yeniden adlandırıldı | `domains/match/components/CapacitySlider.tsx` |
+| 12 | `src/lib/helpers.ts` typed (generic `delay<T>`, SupabaseClient) | `lib/helpers.ts` |
+| 13 | `MockStore` interface oluşturuldu | `lib/mock/store.ts` |
+| 14 | Tüm bileşenler `.tsx` olarak yeniden adlandırıldı | `src/components/*.tsx` |
+| 15 | Tüm ekranlar `.tsx` olarak yeniden adlandırıldı | `src/screens/*.tsx` |
+| 16 | Tüm app route'ları `.tsx` olarak yeniden adlandırıldı | `app/**/*.tsx` |
+
+---
+
+### 22 Mayıs 2026 — Supabase Entegrasyonu
+
+### 22 Mayıs 2026 — Supabase Entegrasyonu
 
 | # | Değişiklik | Dosya |
 |---|---|---|
