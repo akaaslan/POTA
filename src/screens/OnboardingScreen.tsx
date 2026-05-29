@@ -38,7 +38,7 @@ function FieldGroup({ label, children }) {
   );
 }
 
-export default function OnboardingScreen({ draft, onChange, onSubmit, submitting }) {
+export default function OnboardingScreen({ draft, onChange, onSubmit, onLogin, submitting, hideAuth, isRegister }) {
   function set(key, val) {
     onChange(Object.assign({}, draft, { [key]: val }));
   }
@@ -47,11 +47,11 @@ export default function OnboardingScreen({ draft, onChange, onSubmit, submitting
       <ScrollView style={ob.root} contentContainerStyle={ob.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={ob.hero}>
           <View style={ob.heroBall}><Text style={ob.heroBallTxt}>🏀</Text></View>
-          <Text style={ob.heroTitle}>{t('onboarding.hero_title')}</Text>
-          <Text style={ob.heroSub}>{t('onboarding.hero_sub')}</Text>
+          <Text style={ob.heroTitle}>{isRegister ? t('register.hero_title') : t('onboarding.hero_title')}</Text>
+          <Text style={ob.heroSub}>{isRegister ? t('register.hero_sub') : t('onboarding.hero_sub')}</Text>
         </View>
         <View style={ob.formCard}>
-          {!api.isMock() && (
+          {!api.isMock() && !hideAuth && (
             <>
               <FieldGroup label={t('profileEdit.email')}>
                 <TextInput
@@ -126,8 +126,16 @@ export default function OnboardingScreen({ draft, onChange, onSubmit, submitting
           </FieldGroup>
         </View>
         <TouchableOpacity style={[ob.submitBtn, submitting && ob.submitDim]} onPress={onSubmit} activeOpacity={0.85} disabled={!!submitting}>
-          <Text style={ob.submitTxt}>{submitting ? t('onboarding.submit_loading') : t('onboarding.submit_default')}</Text>
+          <Text style={ob.submitTxt}>{submitting ? t(isRegister ? 'register.submit_loading' : 'onboarding.submit_loading') : t(isRegister ? 'register.submit_default' : 'onboarding.submit_default')}</Text>
         </TouchableOpacity>
+        {isRegister && onLogin ? (
+          <View style={ob.footer}>
+            <Text style={ob.footerTxt}>{t('register.have_account')} </Text>
+            <TouchableOpacity onPress={onLogin} activeOpacity={0.7}>
+              <Text style={ob.footerLink}>{t('register.login_link')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
         <View style={{ height: 40 }} />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -155,5 +163,8 @@ const ob = StyleSheet.create({
   chipTxtActive: { color: C.orange },
   submitBtn: { backgroundColor: C.orange, borderRadius: R.lg, paddingVertical: 16, alignItems: 'center', marginBottom: S.md },
   submitDim: { opacity: 0.6 },
-  submitTxt: { color: '#fff', fontSize: F.md, fontWeight: '900', letterSpacing: 2 },
+  submitTxt:  { color: '#fff', fontSize: F.md, fontWeight: '900', letterSpacing: 2 },
+  footer:     { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: S.md },
+  footerTxt:  { color: C.textDim, fontSize: F.sm },
+  footerLink: { color: C.orange, fontSize: F.sm, fontWeight: '800' },
 });

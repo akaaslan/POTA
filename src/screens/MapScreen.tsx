@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,18 +30,25 @@ function heatColor(players, capacity) {
   if (pct >= 0.75) return '#F87171';   // kırmızı — dolu
   if (pct >= 0.5)  return '#FF7A2F';   // turuncu
   if (pct >= 0.25) return '#C8F000';   // lime
-  return '#4ADE8044';                   // boş
+  return '#4ADE80';                     // boş
 }
 
 // Özel saha marker bileşeni
 function CourtMarker({ court, isSelected, onPress }) {
+  // Start tracking so the custom view renders on first load,
+  // then disable after a short delay to avoid per-frame re-renders.
+  var [tracked, setTracked] = useState(true);
+  useEffect(function() {
+    var timer = setTimeout(function() { setTracked(false); }, 500);
+    return function() { clearTimeout(timer); };
+  }, []);
   var color   = court.players > 0 ? heatColor(court.players, court.capacity) : C.border;
   var isLive  = court.status === 'live';
   return (
     <Marker
       coordinate={{ latitude: court.lat, longitude: court.lng }}
       onPress={onPress}
-      tracksViewChanges={false}
+      tracksViewChanges={tracked || isSelected}
     >
       <View style={[mk.outer, { borderColor: isSelected ? C.lime : color }, isSelected && mk.outerSelected]}>
         {isLive ? <View style={mk.livePip} /> : null}
@@ -54,22 +61,53 @@ function CourtMarker({ court, isSelected, onPress }) {
   );
 }
 
+function UserMarker({ coordinate }) {
+  var [tracked, setTracked] = useState(true);
+  useEffect(function() {
+    var timer = setTimeout(function() { setTracked(false); }, 500);
+    return function() { clearTimeout(timer); };
+  }, []);
+  return (
+    <Marker coordinate={coordinate} tracksViewChanges={tracked}>
+      <View style={mk.userMarker}>
+        <View style={mk.userDot} />
+      </View>
+    </Marker>
+  );
+}
+
 export default function MapScreen({ onOpenMatch }) {
   var insets = useSafeAreaInsets();
+  var { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
   var [selected, setSelected] = useState(null);
   var [userLocation, setUserLocation] = useState(null);
+  var [mapRegion, setMapRegion] = useState(ISTANBUL_REGION);
+  var mapRegionRef = useRef(ISTANBUL_REGION);
+  var rafRef = useRef(null);
   var mapRef = useRef(null);
+
+  function handleRegionChange(region) {
+    mapRegionRef.current = region;
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(function() {
+        setMapRegion(mapRegionRef.current);
+        rafRef.current = null;
+      });
+    }
+  }
   var matchFeed = useRunsFeed();
   var liveMatches = (matchFeed.data && matchFeed.data.matches) || [];
 
-  // Augment MOCK_COURTS with real player counts and live status
+  // Augment MOCK_COURTS with real player counts and live status.
+  // If no live data yet, keep static mock values so markers remain visible.
   var COURTS = MOCK_COURTS.map(function(court) {
     var courtMatches = liveMatches.filter(function(m) { return m.district === court.district; });
+    if (!courtMatches.length) return court; // keep original players/status from MOCK_COURTS
     var totalPlayers = courtMatches.reduce(function(sum, m) { return sum + (m.playersJoined || 0); }, 0);
     var hasLive = courtMatches.some(function(m) { return m.status === 'live'; });
     return Object.assign({}, court, {
       players: totalPlayers,
-      status: hasLive ? 'live' : courtMatches.length > 0 ? 'active' : null,
+      status: hasLive ? 'live' : 'active',
     });
   });
 
@@ -81,11 +119,65 @@ export default function MapScreen({ onOpenMatch }) {
         }).catch(function() {});
       }
     }).catch(function() {});
+    return function() {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, []);
 
   var activeCourts  = COURTS.filter(function(c) { return c.players > 0; });
   var liveCourts    = COURTS.filter(function(c) { return c.status === 'live'; });
   var totalPlayers  = COURTS.reduce(function(sum, c) { return sum + c.players; }, 0);
+
+  // ── Off-screen user location arrow ──────────────────────────────────────────
+  var userArrow = null;
+  if (userLocation) {
+    var latMin = mapRegion.latitude  - mapRegion.latitudeDelta  / 2;
+    var latMax = mapRegion.latitude  + mapRegion.latitudeDelta  / 2;
+    var lngMin = mapRegion.longitude - mapRegion.longitudeDelta / 2;
+    var lngMax = mapRegion.longitude + mapRegion.longitudeDelta / 2;
+    var userVisible = (
+      userLocation.lat > latMin && userLocation.lat < latMax &&
+      userLocation.lng > lngMin && userLocation.lng < lngMax
+    );
+    if (!userVisible) {
+      var dLat = userLocation.lat - mapRegion.latitude;
+      var dLng = userLocation.lng - mapRegion.longitude;
+      // Convert geographic delta → screen pixels using map's current scale
+      var pxPerLat = SCREEN_H / mapRegion.latitudeDelta;
+      var pxPerLng = SCREEN_W / mapRegion.longitudeDelta;
+      var sdx =  dLng * pxPerLng; // +X = east  (rightward)
+      var sdy = -dLat * pxPerLat; // +Y = south (downward)
+      // Arrow rotation: 0° = up (▲ points north), clockwise
+      var angle = Math.atan2(sdx, -sdy) * (180 / Math.PI);
+      // Map center = true screen center (MapView fills full viewport)
+      var mapCX = SCREEN_W / 2;
+      var mapCY = SCREEN_H / 2;
+      // Drawable bounds for the arrow button center
+      var ARROW_BTN = 36;
+      var ARROW_PAD = 20;
+      var topOff    = 64; // stats bar height
+      var bottomOff = Math.max(insets.bottom, 14) + 82; // tab bar + recenter btn
+      var bx1 = ARROW_PAD + ARROW_BTN / 2;
+      var bx2 = SCREEN_W - ARROW_PAD - ARROW_BTN / 2;
+      var by1 = topOff + ARROW_PAD + ARROW_BTN / 2;
+      var by2 = SCREEN_H - bottomOff;
+      // Scale direction vector until it hits the nearest bound edge
+      var sx = Math.abs(sdx) > 0.001
+        ? (sdx > 0 ? bx2 - mapCX : mapCX - bx1) / Math.abs(sdx)
+        : Infinity;
+      var sy = Math.abs(sdy) > 0.001
+        ? (sdy > 0 ? by2 - mapCY : mapCY - by1) / Math.abs(sdy)
+        : Infinity;
+      var arrowS = Math.min(sx, sy);
+      var arrowCX = Math.max(bx1, Math.min(bx2, mapCX + sdx * arrowS));
+      var arrowCY = Math.max(by1, Math.min(by2, mapCY + sdy * arrowS));
+      userArrow = {
+        left:  arrowCX - ARROW_BTN / 2,
+        top:   arrowCY - ARROW_BTN / 2,
+        angle: angle,
+      };
+    }
+  }
 
   return (
     <View style={m.root}>
@@ -95,6 +187,8 @@ export default function MapScreen({ onOpenMatch }) {
         style={StyleSheet.absoluteFillObject}
         initialRegion={ISTANBUL_REGION}
         customMapStyle={DARK_MAP_STYLE}
+        onRegionChange={handleRegionChange}
+        onRegionChangeComplete={handleRegionChange}
       >
         {COURTS.map(function(court) {
           var isSelected = selected && selected.id === court.id;
@@ -121,14 +215,7 @@ export default function MapScreen({ onOpenMatch }) {
         })}
         {/* User location marker */}
         {userLocation ? (
-          <Marker
-            coordinate={{ latitude: userLocation.lat, longitude: userLocation.lng }}
-            tracksViewChanges={false}
-          >
-            <View style={mk.userMarker}>
-              <View style={mk.userDot} />
-            </View>
-          </Marker>
+          <UserMarker coordinate={{ latitude: userLocation.lat, longitude: userLocation.lng }} />
         ) : null}
       </MapView>
 
@@ -202,22 +289,52 @@ export default function MapScreen({ onOpenMatch }) {
 
       {/* Renk lejantı */}
       <View style={m.legend}>
-        <View style={[m.legendDot, { backgroundColor: '#F87171' }]} />
-        <Text style={m.legendTxt}>{t('map.legend_crowded')}</Text>
+        <View style={m.legendRow}>
+          <View style={[m.legendDot, { backgroundColor: '#F87171' }]} />
+          <Text style={m.legendTxt}>{t('map.legend_crowded')}</Text>
+        </View>
         <View style={m.legendSep} />
-        <View style={[m.legendDot, { backgroundColor: '#FF7A2F' }]} />
-        <Text style={m.legendTxt}>{t('map.legend_active')}</Text>
+        <View style={m.legendRow}>
+          <View style={[m.legendDot, { backgroundColor: '#FF7A2F' }]} />
+          <Text style={m.legendTxt}>{t('map.legend_active')}</Text>
+        </View>
         <View style={m.legendSep} />
-        <View style={[m.legendDot, { backgroundColor: C.lime }]} />
-        <Text style={m.legendTxt}>{t('map.legend_few')}</Text>
+        <View style={m.legendRow}>
+          <View style={[m.legendDot, { backgroundColor: C.lime }]} />
+          <Text style={m.legendTxt}>{t('map.legend_few')}</Text>
+        </View>
         <View style={m.legendSep} />
-        <View style={[m.legendDot, { backgroundColor: C.border }]} />
-        <Text style={m.legendTxt}>{t('map.legend_empty')}</Text>
+        <View style={m.legendRow}>
+          <View style={[m.legendDot, { backgroundColor: C.border }]} />
+          <Text style={m.legendTxt}>{t('map.legend_empty')}</Text>
+        </View>
       </View>
-
+      {/* Off-screen kullanıcı ok göstergesi */}
+      {userArrow ? (
+        <TouchableOpacity
+          style={[m.userArrowBtn, {
+            left: userArrow.left,
+            top:  userArrow.top,
+            transform: [{ rotate: userArrow.angle + 'deg' }],
+          }]}
+          onPress={function() {
+            if (mapRef.current) {
+              mapRef.current.animateToRegion({
+                latitude:      userLocation.lat,
+                longitude:     userLocation.lng,
+                latitudeDelta:  0.03,
+                longitudeDelta: 0.03,
+              }, 600);
+            }
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={m.userArrowIcon}>▲</Text>
+        </TouchableOpacity>
+      ) : null}
       {/* Geri Dön FAB */}
       <TouchableOpacity
-        style={[m.recenterBtn, { bottom: Math.max(insets.bottom, 14) + 330 }]}
+        style={[m.recenterBtn, { bottom: selected ? 290 : Math.max(insets.bottom, 14) + 16 }]}
         onPress={function() {
           if (mapRef.current) mapRef.current.animateToRegion(ISTANBUL_REGION, 800);
         }}
@@ -340,6 +457,7 @@ var m = StyleSheet.create({
     gap: 6,
   },
   legendDot: { width: 8, height: 8, borderRadius: 4, marginRight: 4 },
+  legendRow: { flexDirection: 'row', alignItems: 'center' },
   legendTxt: { color: C.textDim, fontSize: 10, fontWeight: '700' },
   legendSep: { height: 1, backgroundColor: C.border },
   recenterBtn: {
@@ -350,22 +468,34 @@ var m = StyleSheet.create({
     elevation: 6, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 8, shadowOffset: { width: 0, height: 3 },
   },
   recenterIcon: { color: C.lime, fontSize: 20 },
+
+  userArrowBtn: {
+    position: 'absolute',
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: C.blue + 'CC',
+    borderWidth: 2, borderColor: C.blue,
+    alignItems: 'center', justifyContent: 'center',
+    elevation: 8,
+    shadowColor: C.blue, shadowOpacity: 0.7, shadowRadius: 8, shadowOffset: { width: 0, height: 0 },
+  },
+  userArrowIcon: { color: '#fff', fontSize: 13, lineHeight: 14 },
 });
 
 // ─── Koyu harita stili (Android / Google Maps) ────────────────────────────────
 var DARK_MAP_STYLE = [
-  { elementType: 'geometry',             stylers: [{ color: '#12121C' }] },
-  { elementType: 'labels.text.fill',     stylers: [{ color: '#6B6B8A' }] },
+  { elementType: 'geometry',             stylers: [{ color: '#0D0D1A' }] },
+  { elementType: 'labels.text.fill',     stylers: [{ color: '#8888AA' }] },
   { elementType: 'labels.text.stroke',   stylers: [{ color: '#0D0D0F' }] },
-  { featureType: 'road',              elementType: 'geometry',        stylers: [{ color: '#1E1E2E' }] },
-  { featureType: 'road',              elementType: 'geometry.stroke', stylers: [{ color: '#0D0D0F' }] },
-  { featureType: 'road',              elementType: 'labels.text.fill',stylers: [{ color: '#5A5A72' }] },
-  { featureType: 'road.highway',      elementType: 'geometry',        stylers: [{ color: '#2A2A3E' }] },
+  { featureType: 'road',              elementType: 'geometry',        stylers: [{ color: '#2C2C4A' }] },
+  { featureType: 'road',              elementType: 'geometry.stroke', stylers: [{ color: '#1A1A2E' }] },
+  { featureType: 'road',              elementType: 'labels.text.fill',stylers: [{ color: '#7070A0' }] },
+  { featureType: 'road.highway',      elementType: 'geometry',        stylers: [{ color: '#3A3A5C' }] },
+  { featureType: 'road.highway',      elementType: 'geometry.stroke', stylers: [{ color: '#24243C' }] },
   { featureType: 'water',             elementType: 'geometry',        stylers: [{ color: '#0A1628' }] },
   { featureType: 'water',             elementType: 'labels.text.fill',stylers: [{ color: '#1A3A5A' }] },
-  { featureType: 'poi',               elementType: 'geometry',        stylers: [{ color: '#161624' }] },
-  { featureType: 'poi.park',          elementType: 'geometry',        stylers: [{ color: '#0F1A0F' }] },
-  { featureType: 'transit',           elementType: 'geometry',        stylers: [{ color: '#1A1A2E' }] },
-  { featureType: 'administrative',    elementType: 'geometry.stroke', stylers: [{ color: '#2A2A3E' }] },
-  { featureType: 'landscape',         elementType: 'geometry',        stylers: [{ color: '#111120' }] },
+  { featureType: 'poi',               elementType: 'geometry',        stylers: [{ color: '#141422' }] },
+  { featureType: 'poi.park',          elementType: 'geometry',        stylers: [{ color: '#0D1A0D' }] },
+  { featureType: 'transit',           elementType: 'geometry',        stylers: [{ color: '#1A1A30' }] },
+  { featureType: 'administrative',    elementType: 'geometry.stroke', stylers: [{ color: '#2A2A44' }] },
+  { featureType: 'landscape',         elementType: 'geometry',        stylers: [{ color: '#0D0D1A' }] },
 ];

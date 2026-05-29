@@ -288,6 +288,29 @@
     "me_tag": "SEN"
   },
 
+  "login": {
+    "hero_title": "TEKRAR HOŞ GELDİN",
+    "hero_sub": "Hesabına giriş yap ve\nsahaya dön.",
+    "field_email": "E-POSTA",
+    "field_password": "ŞİFRE",
+    "placeholder_email": "ornek@mail.com",
+    "placeholder_password": "••••••••",
+    "submit_default": "GİRİŞ YAP →",
+    "submit_loading": "GİRİLİYOR...",
+    "google_btn": "GOOGLE İLE GİRİŞ",
+    "no_account": "Hesabın yok mu?",
+    "register_link": "KAYIT OL"
+  },
+
+  "register": {
+    "hero_title": "POTA'YA HOŞ GELDİN",
+    "hero_sub": "İstanbul sokaklarının en iyi\npickup basketball platformu.",
+    "submit_default": "KAYIT OL →",
+    "submit_loading": "KAYDEDİLİYOR...",
+    "have_account": "Zaten hesabın var mı?",
+    "login_link": "GİRİŞ YAP"
+  },
+
   "onboarding": {
     "hero_title": "POTA'YA HOŞ GELDİN",
     "hero_sub": "İstanbul sokaklarının en iyi\npickup basketball platformu.",

@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -21,8 +22,9 @@
     "expo-linear-gradient": "~55.0.14",
     "expo-linking": "~55.0.15",
     "expo-location": "~55.1.10",
-    "expo-router": "~55.0.14",
+    "expo-router": "55.0.16",
     "expo-status-bar": "~55.0.6",
+    "expo-web-browser": "~55.0.16",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-native": "0.83.6",
@@ -32,5 +34,11 @@
     "react-native-web": "^0.21.0",
     "zustand": "^5.0.13"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "@types/react": "~19.2.10",
+    "babel-plugin-module-resolver": "^5.0.3",
+    "patch-package": "^8.0.1",
+    "typescript": "~5.9.2"
+  }
 }

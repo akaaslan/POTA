@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
   TouchableOpacity, Image, Switch, TextInput,
@@ -9,89 +9,8 @@ import { C, F, R, S } from '../theme';
 import { useCreateMatch } from '../hooks/useMatches';
 import { t } from '../i18n';
 import { useUIStore } from '../store/ui';
-import { MOCK_COURTS } from '../data/mockData';
-
-var COURTS = MOCK_COURTS;
-
-var FORMAT_LABEL = { '3V3': '3v3 Yarı Saha', '5V5': '5v5 Tam Saha' };
-var LEVEL_LABEL  = { 'ROOKİE': 'Açık Saha', 'PRO-AM': 'Pro-Am', 'ELİT': 'Elit' };
-function buildTimes() {
-  var times = [];
-  for (var h = 7; h <= 23; h++) {
-    times.push((h < 10 ? '0' : '') + h + ':00');
-    if (h < 23) times.push((h < 10 ? '0' : '') + h + ':30');
-  }
-  return times;
-}
-var TIMES = buildTimes(); // 07:00 … 23:00, her 30 dakikada bir
-var FEES  = ['Ücretsiz', '10 TL', '20 TL', '30 TL', '40 TL', '50 TL', '75 TL', '100 TL', 'Özel'];
-
-function buildDays() {
-  var labels = [];
-  var today = new Date();
-  var dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-  for (var i = 0; i < 5; i++) {
-    if (i === 0) { labels.push('Bugün'); continue; }
-    if (i === 1) { labels.push('Yarın'); continue; }
-    var d = new Date(today);
-    d.setDate(today.getDate() + i);
-    labels.push(dayNames[d.getDay()]);
-  }
-  return labels;
-}
-var DAYS = buildDays();
-var MAX_BY_FMT = { '3V3': 6, '5V5': 10 };
-
-var THUMB_D   = 22;
-function CapacitySlider({ value, min, max, onChange }) {
-  var trackWRef = useRef(1);
-  var [trackW, setTrackW] = useState(1);
-
-  var pct     = max > min ? (value - min) / (max - min) : 0;
-  var thumbPx = Math.max(0, pct * (trackW - THUMB_D));
-
-  function calcAndEmit(locationX) {
-    var w = trackWRef.current;
-    if (w <= THUMB_D) return;
-    var p   = Math.max(0, Math.min(1, locationX / w));
-    var val = Math.round(min + p * (max - min));
-    onChange(val);
-  }
-
-  function onLayout(e) {
-    var w = e.nativeEvent.layout.width;
-    trackWRef.current = w;
-    setTrackW(w);
-  }
-
-  return (
-    <View style={sl.root}>
-      {/* Touch surface — captures full 44 px height */}
-      <View
-        style={sl.hitArea}
-        onLayout={onLayout}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={function(e) { calcAndEmit(e.nativeEvent.locationX); }}
-        onResponderMove={function(e) { calcAndEmit(e.nativeEvent.locationX); }}
-      >
-        {/* Track */}
-        <View style={sl.track} pointerEvents="none">
-          <View style={[sl.fill, { width: thumbPx + THUMB_D / 2 }]} />
-        </View>
-        {/* Thumb */}
-        <View
-          pointerEvents="none"
-          style={[sl.thumb, { left: thumbPx, top: (44 - THUMB_D) / 2 }]}
-        />
-      </View>
-      <View style={sl.labels}>
-        <Text style={sl.labelTxt}>{min}</Text>
-        <Text style={sl.labelTxt}>{max}</Text>
-      </View>
-    </View>
-  );
-}
+import { useCreateRunForm } from '@domains/match/hooks/useCreateRunForm';
+import { CapacitySlider } from '@domains/match/components/CapacitySlider';
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function CreateRunScreen() {
@@ -100,49 +19,26 @@ export default function CreateRunScreen() {
   var createMatch = useCreateMatch();
   var showToast = useUIStore(function(s) { return s.showToast; });
 
-  var [courtId,  setCourtId]  = useState(COURTS[0].id);
-  var [format,   setFormat]   = useState('3V3');
-  var [level,    setLevel]    = useState('ROOKİE');
-  var [capacity, setCapacity] = useState(6);
-  var [dayIdx,   setDayIdx]   = useState(0);
-  var [timeIdx,  setTimeIdx]  = useState(24); // 19:00
-  var [feeIdx,   setFeeIdx]   = useState(0);
-  var [isPublic,    setIsPublic]    = useState(true);
-  var [title,       setTitle]       = useState('');
-  var [description, setDescription] = useState('');
-  var [customFee,   setCustomFee]   = useState('');
-
-  var maxPlayers = MAX_BY_FMT[format] || 6;
-
-  function handleFormat(f) {
-    setFormat(f);
-    var newMax = MAX_BY_FMT[f] || 6;
-    if (capacity > newMax) setCapacity(newMax);
-  }
+  var form = useCreateRunForm();
+  var {
+    courtId, setCourtId,
+    format, handleFormat,
+    level, setLevel,
+    capacity, setCapacity,
+    dayIdx, setDayIdx,
+    timeIdx, setTimeIdx,
+    feeIdx, setFeeIdx,
+    isPublic, setIsPublic,
+    title, setTitle,
+    description, setDescription,
+    customFee, setCustomFee,
+    maxPlayers,
+    COURTS, TIMES, FEES, DAYS, FORMAT_LABEL,
+    buildMatchPayload,
+  } = form;
 
   function handleCreate() {
-    var court      = COURTS.find(function(c) { return c.id === courtId; }) || COURTS[0];
-    var feeRaw     = FEES[feeIdx];
-    var fee        = feeRaw === 'Ücretsiz' ? null
-      : feeRaw === 'Özel' ? (customFee.trim() || null)
-      : feeRaw.replace(' TL', '');
-    var matchTitle = title.trim()
-      ? title.trim().toUpperCase()
-      : (court.name + ' ' + (FORMAT_LABEL[format] || format)).toUpperCase();
-    createMatch.mutate({
-      title:       matchTitle,
-      courtId:     court.id,
-      courtName:   court.name,
-      district:    court.district,
-      format:      FORMAT_LABEL[format] || format,
-      skillLevel:  LEVEL_LABEL[level]   || level,
-      capacity:    capacity,
-      dayOffset:   dayIdx,
-      dateTime:    DAYS[dayIdx] + ' ' + TIMES[timeIdx],
-      fee:         fee,
-      isPublic:    isPublic,
-      description: description.trim() || null,
-    }, {
+    createMatch.mutate(buildMatchPayload(), {
       onSuccess: function() { showToast(t('createRun.success'), 'success'); router.back(); },
     });
   }
@@ -440,43 +336,6 @@ export default function CreateRunScreen() {
     </View>
   );
 }
-
-// ─── Slider styles ────────────────────────────────────────────────────────────
-var sl = StyleSheet.create({
-  root:     { marginTop: S.sm },
-  hitArea:  { height: 44 },
-  track: {
-    position: 'absolute',
-    top: (44 - 4) / 2,
-    left: 0, right: 0,
-    height: 4,
-    backgroundColor: C.border,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-    backgroundColor: C.lime,
-    borderRadius: 2,
-  },
-  thumb: {
-    position: 'absolute',
-    width: THUMB_D, height: THUMB_D,
-    borderRadius: THUMB_D / 2,
-    backgroundColor: C.lime,
-    elevation: 6,
-    shadowColor: C.lime,
-    shadowOpacity: 0.55,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  labels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: S.xs,
-  },
-  labelTxt: { color: C.textDim, fontSize: F.xs, fontWeight: '700' },
-});
 
 // ─── Court card styles ────────────────────────────────────────────────────────
 var cd = StyleSheet.create({
