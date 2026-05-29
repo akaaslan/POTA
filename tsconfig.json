@@ -36,6 +36,18 @@
       ],
       "@models/*": [
         "src/models/*"
+      ],
+      "@ui": [
+        "src/ui/index.ts"
+      ],
+      "@ui/*": [
+        "src/ui/*"
+      ],
+      "@design": [
+        "src/design/theme.ts"
+      ],
+      "@design/*": [
+        "src/design/*"
       ]
     }
   },
