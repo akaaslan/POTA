@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Animated, StyleSheet } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
 
 // ─── Animated skeleton block ──────────────────────────────────────────────────
-function SkeletonBlock({ style }) {
+function SkeletonBlock({ style }: { style?: StyleProp<ViewStyle> }) {
   var anim = useRef(new Animated.Value(0.35)).current;
   useEffect(function() {
     var loop = Animated.loop(
@@ -35,7 +36,7 @@ export function SkeletonCard() {
   );
 }
 
-export function SkeletonList({ count }) {
+export function SkeletonList({ count }: { count?: number }) {
   var rows = [];
   for (var i = 0; i < (count || 3); i++) { rows.push(i); }
   return (
@@ -46,7 +47,7 @@ export function SkeletonList({ count }) {
 }
 
 // ─── Error state with retry button ────────────────────────────────────────────
-export function ErrorState({ message, onRetry }) {
+export function ErrorState({ message, onRetry }: { message?: string; onRetry?: () => void }) {
   return (
     <View style={er.root}>
       <Text style={er.icon}>!</Text>

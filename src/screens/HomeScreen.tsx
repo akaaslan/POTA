@@ -1,20 +1,33 @@
-import React from 'react';
+import React, { useCallback, memo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, F, R, S } from '../theme';
 import { SkeletonList, ErrorState } from '../components/ScreenStates';
 import { t } from '../i18n';
+import { SKILL_TIER_COLOR as TIER_COLOR } from '@shared/constants/tier';
+import type { Match, HomeFeed, TrendingCourt, SquadActivity } from '../types/domain/match';
 
-var TIER_COLOR = {
-  'Açık Saha': C.green || '#4ADE80',
-  'Orta Seviye': '#A8CC00',
-  'Yarı-Pro': '#FBBF24',
-  'Pro-Am': '#FF7A2F',
-  'Elit': '#F87171',
-};
+// ─── Sub-component prop types ─────────────────────────────────────────────────
+interface SectionHeadProps { num: number; title: string; actionLabel?: string; onAction?: () => void; }
+interface HeroCardProps    { match: Match | null; onPress: (m: Match) => void; }
+interface ActivityItemProps { item: SquadActivity; }
+interface CourtCardProps   { court: TrendingCourt; onPress: (m: Match) => void; }
+interface UrgentCardProps  { match: Match; onPress: (m: Match) => void; }
+interface ProBannerProps   { onUpgrade: () => void; }
+interface HomeScreenProps {
+  data: HomeFeed | null;
+  onOpenMatch: (m: Match) => void;
+  onOpenActivity?: () => void;
+  onCreateRun: () => void;
+  onUpgradePro: () => void;
+  refreshing: boolean;
+  onRefresh: () => void;
+  isError: boolean;
+  onRetry: () => void;
+}
 
-function SectionHead({ num, title, actionLabel, onAction }) {
+function _SectionHead({ num, title, actionLabel, onAction }: SectionHeadProps) {
   return (
     <View style={h.sectionHead}>
       <Text style={h.sectionNum}>{num < 10 ? '0' + num : String(num)}</Text>
@@ -28,17 +41,19 @@ function SectionHead({ num, title, actionLabel, onAction }) {
     </View>
   );
 }
+const SectionHead = memo(_SectionHead);
 
-function HeroCard({ match, onPress }) {
+function _HeroCard({ match, onPress }: HeroCardProps) {
   if (!match) return null;
   var filled = match.playersJoined;
   var total = match.capacity;
   var pct = total > 0 ? (filled / total) : 0;
   var spotsLeft = total - filled;
   var tierColor = TIER_COLOR[match.skillLevel] || C.lime;
+  var handlePress = useCallback(function() { onPress(match); }, [match, onPress]);
   return (
-    <TouchableOpacity style={h.hero} onPress={function() { onPress(match); }} activeOpacity={0.92}>
-      <Image source={{ uri: match.image }} style={h.heroImg} />
+    <TouchableOpacity style={h.hero} onPress={handlePress} activeOpacity={0.92}>
+      <Image source={{ uri: match.image }} style={h.heroImg} contentFit="cover" cachePolicy="memory-disk" />
       <View style={h.heroDim} />
       {/* Tier accent bar */}
       <View style={[h.heroTierBar, { backgroundColor: tierColor }]} />
@@ -73,24 +88,25 @@ function HeroCard({ match, onPress }) {
           </View>
         </View>
         <View style={h.progressTrack}>
-          <View style={[h.progressFill, { width: (Math.round(pct * 100)) + '%', backgroundColor: tierColor }]} />
+          <View style={[h.progressFill, { width: `${Math.round(pct * 100)}%`, backgroundColor: tierColor }]} />
         </View>
         <View style={h.progressMeta}>
           <Text style={h.progressTxt}>{filled} / {total} {t('home.players_label')}</Text>
           <Text style={[h.spotsTxt, { color: tierColor }]}>{spotsLeft} {t('common.spots_left')}</Text>
         </View>
-        <TouchableOpacity style={h.joinBtn} onPress={function() { onPress(match); }} activeOpacity={0.85}>
+        <TouchableOpacity style={h.joinBtn} onPress={handlePress} activeOpacity={0.85}>
           <Text style={h.joinTxt}>{match.cta || t('home.join_cta')}  →</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 }
+const HeroCard = memo(_HeroCard);
 
-function ActivityItem({ item }) {
+function _ActivityItem({ item }: ActivityItemProps) {
   return (
     <View style={h.actItem}>
-      <Image source={{ uri: item.avatar }} style={h.actAvatar} />
+      <Image source={{ uri: item.avatar }} style={h.actAvatar} contentFit="cover" cachePolicy="memory-disk" />
       <View style={h.actBody}>
         <Text style={h.actTxt} numberOfLines={2}>
           <Text style={h.actUser}>{item.user} </Text>
@@ -103,11 +119,13 @@ function ActivityItem({ item }) {
     </View>
   );
 }
+const ActivityItem = memo(_ActivityItem);
 
-function CourtCard({ court, onPress }) {
+function _CourtCard({ court, onPress }: CourtCardProps) {
+  const handlePress = useCallback(function() { if (court.featuredMatch) onPress(court.featuredMatch); }, [court, onPress]);
   return (
-    <TouchableOpacity style={h.courtCard} onPress={function() { onPress(court.featuredMatch); }} activeOpacity={0.88}>
-      <Image source={{ uri: court.image }} style={h.courtImg} />
+    <TouchableOpacity style={h.courtCard} onPress={handlePress} activeOpacity={0.88}>
+      <Image source={{ uri: court.image }} style={h.courtImg} contentFit="cover" cachePolicy="memory-disk" />
       <View style={h.courtDim} />
       <View style={h.courtBody}>
         <Text style={h.courtHeat}>{court.heat}</Text>
@@ -116,17 +134,18 @@ function CourtCard({ court, onPress }) {
       </View>
       {/* THPS-style corner score */}
       <View style={h.courtScore}>
-        <Text style={h.courtScoreTxt}>{court.activeRuns || 0}</Text>
-        <Text style={h.courtScoreLbl}>RUN</Text>
+          <Text style={h.courtScoreTxt}>{court.activeRuns || 0}</Text>
+          <Text style={h.courtScoreLbl}>RUN</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
-function UrgentCard({ match, onPress }) {
+function _UrgentCard({ match, onPress }: UrgentCardProps) {
   var tierColor = TIER_COLOR[match.skillLevel] || C.orange;
+  var handlePress = useCallback(function() { onPress(match); }, [match, onPress]);
   return (
-    <TouchableOpacity style={h.urgentCard} onPress={function() { onPress(match); }} activeOpacity={0.88}>
+    <TouchableOpacity style={h.urgentCard} onPress={handlePress} activeOpacity={0.88}>
       <View style={[h.urgentAccent, { backgroundColor: tierColor }]} />
       <View style={h.urgentLeft}>
         {match.urgency ? (
@@ -149,7 +168,7 @@ function UrgentCard({ match, onPress }) {
   );
 }
 
-function ProBanner({ onUpgrade }) {
+function _ProBanner({ onUpgrade }: ProBannerProps) {
   return (
     <TouchableOpacity style={h.proBanner} onPress={onUpgrade} activeOpacity={0.9}>
       <View style={h.proBannerAccent} />
@@ -161,9 +180,13 @@ function ProBanner({ onUpgrade }) {
     </TouchableOpacity>
   );
 }
+const ProBanner  = memo(_ProBanner);
+const UrgentCard = memo(_UrgentCard);
+const CourtCard  = memo(_CourtCard);
 
-export default function HomeScreen({ data, onOpenMatch, onOpenActivity, onCreateRun, onUpgradePro, refreshing, onRefresh, isError, onRetry }) {
+export default function HomeScreen({ data, onOpenMatch, onOpenActivity, onCreateRun, onUpgradePro, refreshing, onRefresh, isError, onRetry }: HomeScreenProps) {
   var insets = useSafeAreaInsets();
+  var handleOpenActivity = useCallback(function() { onOpenActivity && onOpenActivity(); }, [onOpenActivity]);
   if (isError) {
     return <ErrorState message={t('home.error')} onRetry={onRetry} />;
   }
@@ -186,7 +209,7 @@ export default function HomeScreen({ data, onOpenMatch, onOpenActivity, onCreate
         </View>
         <HeroCard match={data.heroMatch} onPress={onOpenMatch} />
         <View style={h.section}>
-          <SectionHead num={1} title={t('home.section_activity')} actionLabel={t('home.section_activity_action')} onAction={onOpenActivity} />
+          <SectionHead num={1} title={t('home.section_activity')} actionLabel={t('home.section_activity_action')} onAction={handleOpenActivity} />
           <View style={h.actCard}>
             {(data.squadActivity || []).map(function(item) {
               return <ActivityItem key={item.id} item={item} />;

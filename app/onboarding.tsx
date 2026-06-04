@@ -45,7 +45,7 @@ export default function OnboardingRoute() {
       qc.invalidateQueries();
       router.replace('/(tabs)/');
     } catch (e) {
-      var msg = (e && e.message) ? e.message : 'Kayıt oluşturulamadı. Tekrar dene.';
+      var msg = e instanceof Error ? e.message : 'Kayıt oluşturulamadı. Tekrar dene.';
       showToast(msg, 'error');
     } finally {
       setSubmitting(false);

@@ -5,28 +5,33 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUIStore } from '../src/store/ui';
 import { C, F, R, S } from '../src/theme';
 import { t } from '../src/i18n';
+import type { MatchFilters } from '../src/types/domain/match';
+
+type FilterKey = keyof MatchFilters;
 
 var DISTRICTS = ['Tümü', 'Şişli', 'Kadıköy', 'Beşiktaş', 'Üsküdar', 'Fatih', 'Bağcılar', 'Zeytinburnu', 'Sarıyer'];
 var SKILLS    = ['Tümü', 'Açık Saha', 'Orta Seviye', 'Yarı-Pro', 'Pro-Am', 'Elit'];
 var FORMATS   = ['Tümü', '3v3 Yarı Saha', '5v5 Tam Saha', '1v1', '2v2'];
 
-var TABS = [
+var TABS: Array<{ key: FilterKey; label: string; options: string[] }> = [
   { key: 'district', label: t('filter.tab_district'), options: DISTRICTS },
   { key: 'skill',    label: t('filter.tab_skill'),    options: SKILLS    },
   { key: 'format',   label: t('filter.tab_format'),   options: FORMATS   },
 ];
 
 export default function FilterScreen() {
-  var router       = useRouter();
-  var params       = useLocalSearchParams();
-  var insets       = useSafeAreaInsets();
+  var router        = useRouter();
+  var params        = useLocalSearchParams();
+  var insets        = useSafeAreaInsets();
   var activeFilters = useUIStore(function(s) { return s.activeFilters; });
-  var setFilters   = useUIStore(function(s) { return s.setFilters; });
+  var setFilters    = useUIStore(function(s) { return s.setFilters; });
 
-  var [local, setLocal]       = useState(activeFilters || { district: 'Tümü', skill: 'Tümü', format: 'Tümü' });
-  var [activeTab, setActiveTab] = useState(params.initialKey || 'district');
+  var [local, setLocal]         = useState<MatchFilters>(activeFilters || { district: 'Tümü', skill: 'Tümü', format: 'Tümü' });
+  var [activeTab, setActiveTab] = useState<FilterKey>(
+    (params.initialKey as FilterKey | undefined) ?? 'district',
+  );
 
-  function pick(key, val) {
+  function pick(key: FilterKey, val: string) {
     setLocal(function(prev) { return Object.assign({}, prev, { [key]: val }); });
   }
 
@@ -43,7 +48,7 @@ export default function FilterScreen() {
     return local.district !== 'Tümü' || local.skill !== 'Tümü' || local.format !== 'Tümü';
   }
 
-  var currentTab = TABS.find(function(t) { return t.key === activeTab; }) || TABS[0];
+  var currentTab = TABS.find(function(tab) { return tab.key === activeTab; }) ?? TABS[0]!;
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>

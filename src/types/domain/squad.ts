@@ -10,6 +10,7 @@ export interface Team {
   chemistry: number;
   isJoined: boolean;
   image: string;
+  ranking?: string;
 }
 
 // ─── Team roster member ───────────────────────────────────────────────────────

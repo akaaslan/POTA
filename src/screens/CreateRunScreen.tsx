@@ -40,6 +40,7 @@ export default function CreateRunScreen() {
   function handleCreate() {
     createMatch.mutate(buildMatchPayload(), {
       onSuccess: function() { showToast(t('createRun.success'), 'success'); router.back(); },
+      onError:   function(e) { showToast((e instanceof Error ? e.message : null) ?? t('toast.create_match_error'), 'error'); },
     });
   }
 

@@ -3,7 +3,7 @@ import { View, Text, Modal, TouchableOpacity, FlatList, StyleSheet } from 'react
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
 
-var ACTIVITIES = [
+var ACTIVITIES: ActivityItem[] = [
   { id: 'a1',  actor: 'GÖLGE_34',     actionKey: 'joined',  target: 'MAÇKA ELİT 5v5',           time: '2 dk önce',  type: 'join',   district: 'Şişli' },
   { id: 'a2',  actor: 'THUNDER_41',  actionKey: 'created', target: 'BAKIRKÖY ELİT RUN',          time: '8 dk önce',  type: 'create', district: 'Bakırköy' },
   { id: 'a3',  actor: 'BORAN',       actionKey: 'joined',  target: 'KADIKÖY GECE KOŞUSU',         time: '15 dk önce', type: 'join',   district: 'Kadıköy' },
@@ -18,15 +18,17 @@ var ACTIVITIES = [
   { id: 'a12', actor: 'DUVAR_34',    actionKey: 'created', target: 'ŞİŞLİ PAZAR KOŞUSU',            time: '8 sa önce',  type: 'create', district: 'Şişli' },
 ];
 
-var TYPE_META = {
+type ActivityType = 'join' | 'create' | 'win' | 'badge';
+interface ActivityItem { id: string; actor: string; actionKey: string; target: string; time: string; type: ActivityType; district: string; }
+var TYPE_META: Record<ActivityType, { icon: string; color: string }> = {
   join:   { icon: '🏀', color: '#00D4FF' },
   create: { icon: '✚',  color: '#C8F000' },
   win:    { icon: '🏆', color: '#FFD700' },
   badge:  { icon: '⭐', color: '#FF5B00' },
 };
 
-function ActivityRow({ item, onPress }) {
-  var meta = TYPE_META[item.type] || { icon: '•', color: C.textDim };
+function ActivityRow({ item, onPress }: { item: ActivityItem; onPress: () => void }) {
+  var meta = TYPE_META[item.type] ?? { icon: '•', color: C.textDim };
   return (
     <TouchableOpacity style={a.row} onPress={onPress} activeOpacity={0.75}>
       <View style={[a.iconWrap, { backgroundColor: meta.color + '18' }]}>
@@ -48,7 +50,8 @@ function ActivityRow({ item, onPress }) {
   );
 }
 
-export default function ActivitySheet({ open, onClose, onItemPress }) {
+interface ActivitySheetProps { open: boolean; onClose: () => void; onItemPress?: (item: ActivityItem) => void; }
+export default function ActivitySheet({ open, onClose, onItemPress }: ActivitySheetProps) {
   if (!open) return null;
   return (
     <Modal visible={true} transparent animationType="slide" onRequestClose={onClose}>

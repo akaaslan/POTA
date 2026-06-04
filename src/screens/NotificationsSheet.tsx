@@ -10,11 +10,19 @@ import {
 } from 'react-native';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
+import type { Notification } from '../types/domain/notification';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
-export default function NotificationsSheet({ open, notifications, onClose, onMarkAllRead, onNotifPress }) {
-  var unreadCount = (notifications || []).filter(function(n) { return !n.read; }).length;
+interface NotificationsSheetProps {
+  open: boolean;
+  notifications: Notification[];
+  onClose: () => void;
+  onMarkAllRead: () => void;
+  onNotifPress: (notif: Notification) => void;
+}
+export default function NotificationsSheet({ open, notifications, onClose, onMarkAllRead, onNotifPress }: NotificationsSheetProps) {
+  var unreadCount = (notifications || []).filter(function(n: Notification) { return !n.read; }).length;
 
   return (
     <Modal visible={!!open} transparent animationType="slide" onRequestClose={onClose}>
@@ -48,7 +56,7 @@ export default function NotificationsSheet({ open, notifications, onClose, onMar
                 <Text style={ns.emptySubText}>{t('notifications.empty_sub')}</Text>
               </View>
             ) : (
-              notifications.map(function(notif, i) {
+              notifications.map(function(notif: Notification, i: number) {
                 var isLast = i === notifications.length - 1;
                 return (
                   <TouchableOpacity

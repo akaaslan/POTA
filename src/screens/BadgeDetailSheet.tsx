@@ -3,10 +3,11 @@ import {
   View, Text, Modal, TouchableOpacity, StyleSheet, Dimensions,
 } from 'react-native';
 import { C, F, R, S } from '../theme';
+import type { Badge } from '../types/domain/profile';
 
 var { height: SCREEN_H } = Dimensions.get('window');
 
-export default function BadgeDetailSheet({ badge, onClose }) {
+export default function BadgeDetailSheet({ badge, onClose }: { badge: Badge | null; onClose: () => void }) {
   if (!badge) return null;
   var isActive = !!badge.active;
 

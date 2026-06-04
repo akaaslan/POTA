@@ -1,35 +1,15 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import type { DimensionValue } from 'react-native';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
+import { calcOVR, ovrGrade } from '@domains/gamification';
+import { BADGE_TIER_COLOR as TIER_COLORS } from '@shared/constants/tier';
+import type { Badge, Profile, ProfileOverview, ProfileRecentMatch } from '../types/domain/profile';
 
-var TIER_COLORS = { HOF: '#FFD700', GOLD: '#FFA500', SILVER: '#A8A9AD', BRONZE: '#CD7F32' };
-
-function calcOVR(stats) {
-  if (!stats || !stats.length) return 72;
-  var winsEntry  = stats.find(function(s) { return s.label === 'GALİBİYET'; });
-  var gamesEntry = stats.find(function(s) { return s.label === 'MAÇLAR'; });
-  var ptsEntry   = stats.find(function(s) { return s.label === 'ORT. SAYILAR'; });
-  var wins  = winsEntry  ? parseInt(winsEntry.value)  || 0 : 0;
-  var games = gamesEntry ? parseInt(gamesEntry.value) || 1 : 1;
-  var pts   = ptsEntry   ? parseFloat(ptsEntry.value) || 0 : 0;
-  var wr = wins / Math.max(1, games);
-  return Math.min(99, Math.max(55, Math.round(55 + wr * 30 + Math.min(14, pts * 0.7))));
-}
-
-function ovrGrade(ovr) {
-  if (ovr >= 95) return 'S+';
-  if (ovr >= 90) return 'S';
-  if (ovr >= 85) return 'A+';
-  if (ovr >= 80) return 'A';
-  if (ovr >= 75) return 'B+';
-  if (ovr >= 70) return 'B';
-  if (ovr >= 65) return 'C+';
-  return 'C';
-}
-
-function OVRCard({ stats, profile }) {
-  var ovr = calcOVR(stats);
+interface StatItem { label: string; value: string | number; }
+function OVRCard({ stats, profile }: { stats: StatItem[]; profile: Partial<Profile> }) {
+  var ovr = useMemo(function() { return calcOVR(stats); }, [stats]);
   var grade = ovrGrade(ovr);
   return (
     <View style={p.ovrCard}>
@@ -53,24 +33,24 @@ function OVRCard({ stats, profile }) {
   );
 }
 
-function AttrBar({ label, value, maxVal, color }) {
+function AttrBar({ label, value, maxVal, color }: { label: string; value: number; maxVal: number; color?: string }) {
   var pct = Math.min(1, Math.max(0, (value || 0) / (maxVal || 99)));
   return (
     <View style={p.attrRow}>
       <Text style={p.attrLabel}>{label}</Text>
       <View style={p.attrTrack}>
-        <View style={[p.attrFill, { width: (Math.round(pct * 100)) + '%', backgroundColor: color || C.lime }]} />
+        <View style={[p.attrFill, { width: (Math.round(pct * 100) + '%') as DimensionValue, backgroundColor: color || C.lime }]} />
       </View>
       <Text style={p.attrVal}>{value}</Text>
     </View>
   );
 }
 
-function RepSection({ profile, stats }) {
-  var wins  = stats ? (stats.find(function(s) { return s.label === 'GALİBİYET'; }) || {}).value : '0';
-  var games = stats ? (stats.find(function(s) { return s.label === 'MAÇLAR'; }) || {}).value : '0';
-  var pts   = stats ? (stats.find(function(s) { return s.label === 'ORT. SAYILAR'; }) || {}).value : '0';
-  var ast   = stats ? (stats.find(function(s) { return s.label === 'ORT. ASİST'; }) || {}).value : '0';
+function RepSection({ stats }: { profile: Partial<Profile>; stats: StatItem[] }) {
+  var wins  = stats ? String((stats.find(function(s: StatItem) { return s.label === 'GALİBİYET'; }) ?? { value: '0' }).value) : '0';
+  var games = stats ? String((stats.find(function(s: StatItem) { return s.label === 'MAÇLAR'; }) ?? { value: '0' }).value) : '0';
+  var pts   = stats ? String((stats.find(function(s: StatItem) { return s.label === 'ORT. SAYILAR'; }) ?? { value: '0' }).value) : '0';
+  var ast   = stats ? String((stats.find(function(s: StatItem) { return s.label === 'ORT. ASİST'; }) ?? { value: '0' }).value) : '0';
   var wint = parseInt(wins) || 0;
   var gamest = Math.max(1, parseInt(games) || 1);
   return (
@@ -83,12 +63,13 @@ function RepSection({ profile, stats }) {
   );
 }
 
-function BadgeCard({ badge, onPress }) {
+function BadgeCard({ badge, onPress }: { badge: Badge; onPress: (b: Badge) => void }) {
   var tierColor = TIER_COLORS[badge.tier] || C.textDim;
+  var handlePress = useCallback(function() { onPress(badge); }, [badge, onPress]);
   return (
     <TouchableOpacity
       style={[p.badge, badge.active ? p.badgeActive : p.badgeDim, badge.active && { borderColor: tierColor + '55' }]}
-      onPress={function() { onPress(badge); }}
+      onPress={handlePress}
       activeOpacity={0.78}
     >
       {badge.active ? <View style={[p.badgeGlow, { backgroundColor: tierColor + '18' }]} /> : null}
@@ -116,7 +97,7 @@ function HeatGrid() {
   );
 }
 
-function ResultCard({ match }) {
+function ResultCard({ match }: { match: ProfileRecentMatch }) {
   var win = match.outcome === 'W';
   return (
     <View style={[p.resultCard, win ? p.resultWin : p.resultLoss]}>
@@ -148,7 +129,7 @@ function ResultCard({ match }) {
   );
 }
 
-function SectionHead({ num, title }) {
+function SectionHead({ num, title }: { num: number; title: string }) {
   return (
     <View style={p.sectionHead}>
       <Text style={p.sectionNum}>{num < 10 ? '0' + num : String(num)}</Text>
@@ -158,7 +139,17 @@ function SectionHead({ num, title }) {
   );
 }
 
-export default function ProfileScreen({ data, historyExpanded, onToggleHistory, onOpenBadge, onUpgradePro, onEditProfile, onLogout, onOpenLeaderboard }) {
+interface ProfileScreenProps {
+  data: ProfileOverview | null;
+  historyExpanded: boolean;
+  onToggleHistory: () => void;
+  onOpenBadge: (badge: Badge) => void;
+  onUpgradePro: () => void;
+  onEditProfile: () => void;
+  onLogout: () => void;
+  onOpenLeaderboard?: () => void;
+}
+export default function ProfileScreen({ data, historyExpanded, onToggleHistory, onOpenBadge, onUpgradePro, onEditProfile, onLogout, onOpenLeaderboard }: ProfileScreenProps) {
   if (!data) {
     return (
       <View style={p.loading}>
@@ -168,7 +159,8 @@ export default function ProfileScreen({ data, historyExpanded, onToggleHistory, 
     );
   }
   var profile = data.profile || {};
-  var history = historyExpanded ? data.recentMatches : (data.recentMatches || []).slice(0, 3);
+  var allMatches = data.recentMatches ?? [];
+  var history = historyExpanded ? allMatches : allMatches.slice(0, 3);
   return (
     <View style={p.root}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={p.scroll}>
@@ -215,7 +207,7 @@ export default function ProfileScreen({ data, historyExpanded, onToggleHistory, 
         <View style={p.section}>
           <SectionHead num={3} title={t('profile.section_badges')} />
           <View style={p.badgeGrid}>
-            {(data.badges || []).map(function(badge) {
+            {(data.badges || []).map(function(badge: Badge) {
               return <BadgeCard key={badge.id || badge.label} badge={badge} onPress={onOpenBadge} />;
             })}
           </View>
@@ -223,7 +215,7 @@ export default function ProfileScreen({ data, historyExpanded, onToggleHistory, 
         {/* Match history */}
         <View style={p.section}>
           <SectionHead num={4} title={t('profile.section_history')} />
-          {history.map(function(match) {
+          {history.map(function(match: ProfileRecentMatch) {
             return <ResultCard key={match.id} match={match} />;
           })}
           {!historyExpanded && data.recentMatches && data.recentMatches.length > 3 ? (

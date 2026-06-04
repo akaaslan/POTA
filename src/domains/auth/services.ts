@@ -31,7 +31,7 @@ export const authService = {
   },
 
   async signInMock(profile?: Partial<ProfileDraft>): Promise<Session> {
-    mockStore.profile = { ...MOCK_PROFILE, ...(profile ?? {}) };
+    mockStore.profile = { ...MOCK_PROFILE, ...(profile ?? {}) } as unknown as typeof mockStore.profile;
     mockStore.session = {
       id:      'user-' + Date.now(),
       email:   'player@pota.app',

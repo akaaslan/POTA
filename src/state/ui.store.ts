@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { Nullable, Toast, ToastType } from '../types/common';
-import type { SheetName, SheetPayload } from '../types/ui/sheets';
+import type { SheetName } from '../types/ui/sheets';
 import type { MatchFilters } from '../types/domain/match';
 
 const DEFAULT_FILTERS: MatchFilters = {
@@ -11,13 +11,13 @@ const DEFAULT_FILTERS: MatchFilters = {
 
 interface UIState {
   activeSheet:   Nullable<SheetName>;
-  sheetPayload:  Nullable<SheetPayload>;
+  sheetPayload:  unknown;
   activeFilters: MatchFilters;
   toast:         Nullable<Toast>;
 }
 
 interface UIActions {
-  openSheet:    (name: SheetName, payload?: Nullable<SheetPayload>) => void;
+  openSheet:    (name: SheetName, payload?: unknown) => void;
   closeSheet:   () => void;
   setFilters:   (filters: MatchFilters) => void;
   clearFilters: () => void;

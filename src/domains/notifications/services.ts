@@ -35,7 +35,4 @@ export const notificationService = {
     return notificationService.getNotifications();
   },
 
-  getUnreadCount(): number {
-    return (mockStore.notifications as Notification[]).filter((n) => !n.read).length;
-  },
 };

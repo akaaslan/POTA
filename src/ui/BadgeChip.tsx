@@ -55,7 +55,7 @@ export function BadgeChip({
   small     = false,
   style,
 }: BadgeChipProps) {
-  let accentColor = colors.textDim;
+  let accentColor: string = colors.textDim;
 
   switch (variant) {
     case 'tier':

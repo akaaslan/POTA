@@ -1,14 +1,14 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { useMapFeature } from '../../src/features/map';
 import MapScreen from '../../src/screens/MapScreen';
 import { C } from '../../src/theme';
-import { useUIStore } from '../../src/store/ui';
 
 export default function MapTab() {
-  var openSheet = useUIStore(function(s) { return s.openSheet; });
+  var feature = useMapFeature();
   return (
     <View style={s.root}>
-      <MapScreen onOpenMatch={function(match) { openSheet('match-detail', match); }} />
+      <MapScreen onOpenMatch={feature.onOpenMatch} onOpenBooking={feature.onOpenBooking} />
     </View>
   );
 }

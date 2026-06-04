@@ -56,7 +56,11 @@ export function Sheet({
         useNativeDriver: true,
       }).start();
     } else {
-      slideAnim.setValue(SCREEN_HEIGHT);
+      Animated.timing(slideAnim, {
+        toValue:         SCREEN_HEIGHT,
+        duration:        duration.fast,
+        useNativeDriver: true,
+      }).start();
     }
   }, [visible, slideAnim]);
 

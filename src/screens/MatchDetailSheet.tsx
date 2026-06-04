@@ -1,34 +1,63 @@
 
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, ActivityIndicator, Alert, Share, StyleSheet, Dimensions } from 'react-native';
+import type { DimensionValue } from 'react-native';
 import { Image } from 'expo-image';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
+import type { Match } from '../types/domain/match';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
-export default function MatchDetailSheet({ match, isJoined, joining, onClose, onJoin, onLeave, onReportScore }) {
+export interface MatchScorePayload {
+  scoreA: number;
+  scoreB: number;
+  points: number;
+  rebounds: number;
+  assists: number;
+}
+
+interface MatchDetailSheetProps {
+  match: Match | null;
+  isJoined: boolean;
+  joining: boolean;
+  onClose: () => void;
+  onJoin: (match: Match) => void;
+  onLeave: (match: Match) => void;
+  onReportScore: (match: Match, scores: MatchScorePayload | null) => void;
+}
+export default function MatchDetailSheet({ match, isJoined, joining, onClose, onJoin, onLeave, onReportScore }: MatchDetailSheetProps) {
   if (!match) return null;
+  var m = match; // narrowed non-null ref for use in callbacks
   var [showScoreEntry, setShowScoreEntry] = useState(false);
-  var [scoreA, setScoreA] = useState('');
-  var [scoreB, setScoreB] = useState('');
+  var [scoreA,   setScoreA]   = useState('');
+  var [scoreB,   setScoreB]   = useState('');
+  var [points,   setPoints]   = useState('');
+  var [rebounds, setRebounds] = useState('');
+  var [assists,  setAssists]  = useState('');
+
+  function resetScoreForm() {
+    setShowScoreEntry(false);
+    setScoreA(''); setScoreB('');
+    setPoints(''); setRebounds(''); setAssists('');
+  }
   var filled = match.playersJoined;
   var total = match.capacity;
   var pct = total > 0 ? (filled / total) : 0;
   var spotsLeft = total - filled;
 
   function handleJoinPress() {
-    if (match.feeType === 'Ucretli') {
+    if (m.feeType === 'Ucretli') {
       Alert.alert(
         t('matchDetail.fee_alert_title'),
-        t('matchDetail.fee_alert_msg', { fee: match.fee }),
+        t('matchDetail.fee_alert_msg', { fee: m.fee }),
         [
           { text: t('matchDetail.fee_alert_cancel'), style: 'cancel' },
-          { text: t('matchDetail.fee_alert_confirm', { fee: match.fee }), onPress: function() { onJoin(match); } },
+          { text: t('matchDetail.fee_alert_confirm', { fee: m.fee }), onPress: function() { onJoin(m); } },
         ]
       );
     } else {
-      onJoin(match);
+      onJoin(m);
     }
   }
   return (
@@ -36,7 +65,7 @@ export default function MatchDetailSheet({ match, isJoined, joining, onClose, on
       <View style={md.root}>
         <TouchableOpacity style={md.backdrop} activeOpacity={1} onPress={onClose} />
         <View style={md.sheet}>
-          <Image source={{ uri: match.image }} style={md.heroImg} />
+          <Image source={{ uri: match.image }} style={md.heroImg} contentFit="cover" cachePolicy="memory-disk" />
           <View style={md.heroDim} />
           <TouchableOpacity style={md.closeBtn} onPress={onClose} activeOpacity={0.8}>
             <Text style={md.closeIcon}>✕</Text>
@@ -65,7 +94,7 @@ export default function MatchDetailSheet({ match, isJoined, joining, onClose, on
                 <Text style={md.sectionVal}>{filled} / {total}</Text>
               </View>
               <View style={md.progressTrack}>
-                <View style={[md.progressFill, { width: (Math.round(pct * 100)) + '%' }]} />
+                <View style={[md.progressFill, { width: (Math.round(pct * 100) + '%') as DimensionValue }]} />
               </View>
               <Text style={md.spotsTxt}>{spotsLeft} {t('matchDetail.spots_left')}</Text>
             </View>
@@ -100,49 +129,52 @@ export default function MatchDetailSheet({ match, isJoined, joining, onClose, on
               <>
                 <View style={md.ctaRow}>
                   <View style={md.joinedPill}><Text style={md.joinedTxt}>{t('matchDetail.joined_badge')}</Text></View>
-                  <TouchableOpacity style={md.leaveBtn} onPress={function() { onLeave(match); }} disabled={!!joining} activeOpacity={0.85}>
+                  <TouchableOpacity style={md.leaveBtn} onPress={function() { onLeave(m); }} disabled={!!joining} activeOpacity={0.85}>
                     {joining ? <ActivityIndicator size="small" color={C.red} /> : <Text style={md.leaveTxt}>{t('matchDetail.leave_btn')}</Text>}
                   </TouchableOpacity>
                 </View>
-                {onReportScore && match.status === 'live' ? (
+                {m.status === 'live' ? (
                   showScoreEntry ? (
                     <View style={md.scoreEntry}>
                       <Text style={md.scoreLbl}>{t('matchDetail.score_label')}</Text>
+                      {/* Maç skoru */}
                       <View style={md.scoreRow}>
-                        <TextInput
-                          style={md.scoreInput}
-                          value={scoreA}
-                          onChangeText={setScoreA}
-                          keyboardType="number-pad"
-                          maxLength={3}
-                          placeholder="0"
-                          placeholderTextColor={C.textMuted}
-                        />
+                        <TextInput style={md.scoreInput} value={scoreA} onChangeText={setScoreA} keyboardType="number-pad" maxLength={3} placeholder="0" placeholderTextColor={C.textMuted} />
                         <Text style={md.scoreSep}>–</Text>
-                        <TextInput
-                          style={md.scoreInput}
-                          value={scoreB}
-                          onChangeText={setScoreB}
-                          keyboardType="number-pad"
-                          maxLength={3}
-                          placeholder="0"
-                          placeholderTextColor={C.textMuted}
-                        />
+                        <TextInput style={md.scoreInput} value={scoreB} onChangeText={setScoreB} keyboardType="number-pad" maxLength={3} placeholder="0" placeholderTextColor={C.textMuted} />
+                      </View>
+                      {/* Kişisel istatistikler */}
+                      <Text style={[md.scoreLbl, { marginTop: S.sm }]}>KİŞİSEL İSTATİSTİKLER</Text>
+                      <View style={md.statsRow}>
+                        <View style={md.statInputWrap}>
+                          <Text style={md.statInputLbl}>SAY</Text>
+                          <TextInput style={md.statInput} value={points}   onChangeText={setPoints}   keyboardType="number-pad" maxLength={3} placeholder="0" placeholderTextColor={C.textMuted} />
+                        </View>
+                        <View style={md.statInputWrap}>
+                          <Text style={md.statInputLbl}>RİB</Text>
+                          <TextInput style={md.statInput} value={rebounds} onChangeText={setRebounds} keyboardType="number-pad" maxLength={3} placeholder="0" placeholderTextColor={C.textMuted} />
+                        </View>
+                        <View style={md.statInputWrap}>
+                          <Text style={md.statInputLbl}>ASİST</Text>
+                          <TextInput style={md.statInput} value={assists}  onChangeText={setAssists}  keyboardType="number-pad" maxLength={3} placeholder="0" placeholderTextColor={C.textMuted} />
+                        </View>
                       </View>
                       <View style={md.scoreActions}>
-                        <TouchableOpacity style={md.scoreCancelBtn} onPress={function() { setShowScoreEntry(false); setScoreA(''); setScoreB(''); }} activeOpacity={0.8}>
+                        <TouchableOpacity style={md.scoreCancelBtn} onPress={resetScoreForm} activeOpacity={0.8}>
                           <Text style={md.scoreCancelTxt}>{t('matchDetail.report_cancel')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[md.scoreSubmitBtn, (!scoreA || !scoreB) && md.scoreSubmitDisabled]}
                           disabled={!scoreA || !scoreB}
                           onPress={function() {
-                            var a = parseInt(scoreA) || 0;
-                            var b = parseInt(scoreB) || 0;
-                            onReportScore(match, { scoreA: a, scoreB: b });
-                            setShowScoreEntry(false);
-                            setScoreA('');
-                            setScoreB('');
+                            onReportScore(m, {
+                              scoreA:   parseInt(scoreA)   || 0,
+                              scoreB:   parseInt(scoreB)   || 0,
+                              points:   parseInt(points)   || 0,
+                              rebounds: parseInt(rebounds) || 0,
+                              assists:  parseInt(assists)  || 0,
+                            });
+                            resetScoreForm();
                           }}
                           activeOpacity={0.85}
                         >
@@ -168,8 +200,8 @@ export default function MatchDetailSheet({ match, isJoined, joining, onClose, on
             )}
             <TouchableOpacity style={md.shareBtn} onPress={function() {
               Share.share({
-                message: match.title + ' — POTA\n' + match.courtName + ', ' + match.district + '\n' + match.dateTime,
-                title: match.title,
+                message: m.title + ' — POTA\n' + m.courtName + ', ' + m.district + '\n' + m.dateTime,
+                title: m.title,
               });
             }} activeOpacity={0.85}>
               <Text style={md.shareTxt}>{t('matchDetail.share_btn')}</Text>
@@ -239,7 +271,12 @@ const md = StyleSheet.create({
   scoreCancelTxt: { color: C.textDim, fontSize: F.xs, fontWeight: '700' },
   scoreSubmitBtn: { flex: 2, borderRadius: R.sm, paddingVertical: 10, alignItems: 'center', backgroundColor: C.lime },
   scoreSubmitDisabled: { opacity: 0.4 },
-  scoreSubmitTxt: { color: '#000', fontSize: F.xs, fontWeight: '900', letterSpacing: 1 },  shareBtn: { marginTop: S.sm, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingVertical: 10, alignItems: 'center' },
+  scoreSubmitTxt: { color: '#000', fontSize: F.xs, fontWeight: '900', letterSpacing: 1 },
+  statsRow: { flexDirection: 'row', gap: S.sm, marginBottom: S.md },
+  statInputWrap: { flex: 1, alignItems: 'center' },
+  statInputLbl: { color: C.textDim, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 },
+  statInput: { width: '100%', height: 40, backgroundColor: C.bgPanel, borderRadius: R.sm, borderWidth: 1, borderColor: C.borderLight, color: C.text, fontSize: F.md, fontWeight: '900', textAlign: 'center' },
+  shareBtn: { marginTop: S.sm, borderWidth: 1, borderColor: C.border, borderRadius: R.md, paddingVertical: 10, alignItems: 'center' },
   shareTxt: { color: C.textDim, fontSize: F.xs, fontWeight: '700', letterSpacing: 1.5 },
   footer: { borderTopWidth: 1, borderTopColor: C.border, paddingHorizontal: S.screen, paddingTop: S.md, paddingBottom: 30, backgroundColor: C.bgCard },
 });

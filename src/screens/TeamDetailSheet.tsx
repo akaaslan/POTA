@@ -14,6 +14,24 @@ import {
 import { Image } from 'expo-image';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
+import type { Team } from '../types/domain/squad';
+import type { Profile } from '../types/domain/profile';
+import type { DimensionValue } from 'react-native';
+
+type TeamWithExtra = Team & {
+  ranking?: string;
+  logo?: string;
+  established?: string;
+  offensiveRating?: number;
+  offensiveRankText?: string;
+  winStreak?: number;
+  winStreakText?: string;
+  defensiveRank?: number;
+  recentForm?: { result: string }[];
+  rivalry?: string;
+  roster?: RosterPlayer[];
+  stats?: { label: string; value: string | number }[];
+};
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -26,9 +44,10 @@ var MOCK_INVITE_PLAYERS = [
   { id: 'inv-6', nickname: 'ŞİMŞEK_BSK', district: 'Beşiktaş', ovr: 81, archetype: 'Shooter' },
 ];
 
-function InviteModal({ visible, onClose }) {
-  var [invited, setInvited] = useState({});
-  function handleInvite(player) {
+interface InvitePlayer { id: string; nickname: string; district: string; archetype: string; ovr: number; }
+function InviteModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  var [invited, setInvited] = useState<Record<string, boolean>>({});
+  function handleInvite(player: InvitePlayer) {
     setInvited(function(prev) { return Object.assign({}, prev, { [player.id]: true }); });
   }
   return (
@@ -79,7 +98,7 @@ function InviteModal({ visible, onClose }) {
   );
 }
 
-function FormBadge({ result }) {
+function FormBadge({ result }: { result: string }) {
   var bg = result === 'W' ? C.green : C.red;
   return (
     <View style={[sb.formBadge, { backgroundColor: bg }]}>
@@ -88,16 +107,17 @@ function FormBadge({ result }) {
   );
 }
 
-function RosterRow({ player, last, onPress }) {
+interface RosterPlayer { id?: string; name: string; archetype: string; avatar: string; stats: { label: string; value: string | number }[]; }
+function RosterRow({ player, last, onPress }: { player: RosterPlayer; last: boolean; onPress: () => void }) {
   return (
     <TouchableOpacity style={[sb.rosterRow, !last && sb.rosterBorder]} onPress={onPress} activeOpacity={0.75}>
-      <Image source={{ uri: player.avatar }} style={sb.rosterAvatar} />
+      <Image source={{ uri: player.avatar }} style={sb.rosterAvatar} contentFit="cover" cachePolicy="memory-disk" />
       <View style={sb.rosterInfo}>
         <Text style={sb.rosterName}>{player.name}</Text>
         <Text style={sb.rosterArch}>{player.archetype}</Text>
       </View>
       <View style={sb.rosterStats}>
-        {player.stats.map(function(stat) {
+        {player.stats.map(function(stat: { label: string; value: string | number }) {
           return (
             <View key={stat.label} style={sb.rosterStat}>
               <Text style={sb.statVal}>{stat.value}</Text>
@@ -111,8 +131,19 @@ function RosterRow({ player, last, onPress }) {
   );
 }
 
-export default function TeamDetailSheet({ team, isJoined, joining, onClose, onJoin, onLeave, onOpenChat, onOpenPlayer }) {
+interface TeamDetailSheetProps {
+  team: Team | null;
+  isJoined: boolean;
+  joining: boolean;
+  onClose: () => void;
+  onJoin: (team: Team) => void;
+  onLeave: (team: Team) => void;
+  onOpenChat: () => void;
+  onOpenPlayer: (player: Profile) => void;
+}
+export default function TeamDetailSheet({ team, isJoined, joining, onClose, onJoin, onLeave, onOpenChat, onOpenPlayer }: TeamDetailSheetProps) {
   if (!team) return null;
+  var td = team as TeamWithExtra;
   var [showInvite, setShowInvite] = useState(false);
   var chemBar = Math.min(100, Math.max(0, team.chemistry));
 
@@ -129,16 +160,16 @@ export default function TeamDetailSheet({ team, isJoined, joining, onClose, onJo
             <TouchableOpacity style={sb.closeBtn} onPress={onClose}>
               <Text style={sb.closeIcon}>✕</Text>
             </TouchableOpacity>
-            <Text style={sb.topBadge}>{team.ranking}</Text>
+            <Text style={sb.topBadge}>{td.ranking}</Text>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={sb.scroll}>
             {/* Team Identity */}
             <View style={sb.identity}>
-              <Image source={{ uri: team.logo }} style={sb.teamLogo} />
+              <Image source={td.logo ? { uri: td.logo } : null} style={sb.teamLogo} contentFit="cover" cachePolicy="memory-disk" />
               <View style={sb.identityText}>
                 <Text style={sb.teamName}>{team.name}</Text>
-                <Text style={sb.teamMeta}>{team.district} • Kur. {team.established}</Text>
+                <Text style={sb.teamMeta}>{team.district} • Kur. {td.established}</Text>
               </View>
               <View style={sb.rosterBadge}>
                 <Text style={sb.rosterBadgeNum}>{team.rosterSize}</Text>
@@ -153,7 +184,7 @@ export default function TeamDetailSheet({ team, isJoined, joining, onClose, onJo
                 <Text style={sb.chemValue}>{team.chemistry}%</Text>
               </View>
               <View style={sb.chemTrack}>
-                <View style={[sb.chemFill, { width: chemBar + '%' }]} />
+                <View style={[sb.chemFill, { width: (chemBar + '%') as DimensionValue }]} />
               </View>
             </View>
 
@@ -161,17 +192,17 @@ export default function TeamDetailSheet({ team, isJoined, joining, onClose, onJo
             <View style={sb.statsBlock}>
               <View style={sb.statBlockRow}>
                 <View style={sb.statBlockItem}>
-                  <Text style={sb.statBlockVal}>{team.offensiveRating}</Text>
+                  <Text style={sb.statBlockVal}>{td.offensiveRating}</Text>
                   <Text style={sb.statBlockLbl}>{t('teamDetail.section_offense')}</Text>
-                  <Text style={sb.statBlockSub}>{team.offensiveRankText}</Text>
+                  <Text style={sb.statBlockSub}>{td.offensiveRankText}</Text>
                 </View>
                 <View style={sb.statBlockItem}>
-                  <Text style={[sb.statBlockVal, { color: C.lime }]}>{team.winStreak}W</Text>
+                  <Text style={[sb.statBlockVal, { color: C.lime }]}>{td.winStreak}W</Text>
                   <Text style={sb.statBlockLbl}>{t('teamDetail.section_streak')}</Text>
-                  <Text style={sb.statBlockSub}>{team.winStreakText}</Text>
+                  <Text style={sb.statBlockSub}>{td.winStreakText}</Text>
                 </View>
                 <View style={sb.statBlockItem}>
-                  <Text style={sb.statBlockVal}>{team.defensiveRank}</Text>
+                  <Text style={sb.statBlockVal}>{td.defensiveRank}</Text>
                   <Text style={sb.statBlockLbl}>{t('teamDetail.section_defense')}</Text>
                   <Text style={sb.statBlockSub}>{t('teamDetail.section_defense_rank')}</Text>
                 </View>
@@ -182,7 +213,7 @@ export default function TeamDetailSheet({ team, isJoined, joining, onClose, onJo
             <View style={sb.formBlock}>
               <Text style={sb.formLabel}>{t('teamDetail.section_form')}</Text>
               <View style={sb.formRow}>
-                {team.recentForm.map(function(f, i) {
+                {(td.recentForm ?? []).map(function(f: { result: string }, i: number) {
                   return <FormBadge key={i} result={f.result} />;
                 })}
               </View>
@@ -196,18 +227,19 @@ export default function TeamDetailSheet({ team, isJoined, joining, onClose, onJo
             ) : null}
 
             {/* Rivalry */}
-            {team.rivalry ? (
+            {td.rivalry ? (
               <View style={sb.rivalBlock}>
                 <Text style={sb.rivalBadge}>{t('teamDetail.section_rivalry')}</Text>
-                <Text style={sb.rivalText}>{team.rivalry}</Text>
+                <Text style={sb.rivalText}>{td.rivalry}</Text>
               </View>
             ) : null}
 
             {/* Roster */}
             <View style={sb.rosterBlock}>
               <Text style={sb.rosterTitle}>{t('teamDetail.section_roster')}</Text>
-              {team.roster.map(function(player, i) {
-                return <RosterRow key={player.name} player={player} last={i === team.roster.length - 1} onPress={onOpenPlayer ? function() { onOpenPlayer(player); } : undefined} />;
+              {(td.roster ?? []).map(function(player: RosterPlayer, i: number) {
+                const roster = td.roster ?? [];
+                return <RosterRow key={player.name} player={player} last={i === roster.length - 1} onPress={function() { if (onOpenPlayer) onOpenPlayer(player as unknown as Profile); }} />;
               })}
             </View>
 

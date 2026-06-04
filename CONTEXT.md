@@ -1,6 +1,6 @@
 # POTA — Codebase Context & Handover Document
 
-> **Son güncelleme:** 29 Mayıs 2026 (TypeScript tam geçiş tamamlandı)
+> **Son güncelleme:** 3 Haziran 2026 — Kritik bug fix'ler + TypeScript sıfır hata + 10 yeni özellik implement edildi
 > Bu dosya her önemli prompt sonrası güncellenir. Başka bir cihazdan devam ederken bu dosyayı oku.
 
 ---
@@ -59,6 +59,12 @@ Tasarım dili: Koyu tema, NBA 2K oyunu estetiği (lime/turuncu, OVR kartı, roze
 | `@domains/*` | `src/domains/*` |
 | `@lib/*` | `src/lib/*` |
 
+> ⚠️ **`@types` alias önemli not:** TypeScript `@types` namespace'ini DefinitelyTyped için rezerve eder.  
+> `import from '@types'` veya `import from '@types/index'` hata verir.  
+> Feature dosyalarında (örn. `src/features/**`) **direkt göreceli import** kullanılmalı:  
+> `import type { Match } from '../../types/domain/match'` ✅  
+> `import type { Match } from '@types/domain/match'` ❌
+
 **Kural:** `supabase` tipi `SupabaseClient | null` — erişimde `supabase!` non-null assertion kullanılır (env var kontrolü sonrası).  
 **`checkJs: false`** — `mockData.js` gibi saf veri dosyaları tip kontrolü dışında tutulur.  
 **`allowJs: true`** — geriye dönük uyumluluk re-export `.js` dosyaları derlenir.
@@ -88,9 +94,9 @@ POTA/
 │   │   ├── domain/
 │   │   │   ├── auth.ts         # Session, AuthState, SignInPayload, AuthStore
 │   │   │   ├── match.ts        # Match, MatchFilters, HomeFeed, CreateMatchPayload, FORMAT_LABEL, SKILL_LABEL
-│   │   │   ├── notification.ts # NotificationType, Notification
-│   │   │   ├── profile.ts      # Profile, ProfileOverview, PlayerStats, Badge, ProfileDraft
-│   │   │   └── squad.ts        # Team, RosterMember, TeamDetail
+│   │   │   ├── notification.ts # NotificationType, Notification (icon?: string eklendi)
+│   │   │   ├── profile.ts      # Profile, ProfileOverview (nested — BKZ. §8), ProfileStatItem, ProfileRecentMatch, Badge, ProfileDraft
+│   │   │   └── squad.ts        # Team (ranking?: string eklendi), RosterMember, TeamDetail
 │   │   ├── ui/
 │   │   │   ├── sheets.ts       # SheetName, SheetPayload (discriminated union), OpenSheet, CloseSheet
 │   │   │   └── store.ts        # UIState, UIActions, UIStore
@@ -293,7 +299,9 @@ hideToast()
 | `matchService` | `domains/match/services.ts` | `getHomeFeed()`, `getNearbyMatches()`, `getFilteredMatches(filters)`, `createMatch(data)`, `joinMatch(id)`, `leaveMatch(id)`, `isJoined(id)`, `reportScore(id, outcome)` |
 | `squadService` | `domains/squad/services.ts` | `getFeaturedTeams()`, `getTeamById(id)`, `joinTeam(id)`, `leaveTeam(id)`, `isJoined(id)` |
 | `profileService` | `domains/profile/services.ts` | `createDefaultProfileDraft()`, `getProfileOverview(draft?)`, `updateProfile(updates)` |
-| `notificationService` | `domains/notifications/services.ts` | `getNotifications()`, `markAllRead()`, `getUnreadCount()` |
+| `notificationService` | `domains/notifications/services.ts` | `getNotifications()`, `markAllRead()` |
+
+> ⚠️ `getUnreadCount()` **kaldırıldı** (3 Haziran 2026). Reaktif olmayan dead code'du — mock store'a bakıyordu, React Query cache'i değil. Bunun yerine `useNotificationsCount()` hook'unu kullan → TanStack Query verisinden doğru sayı döner.
 
 **Mock mod (`MOCK_MODE=true`):** Servisler `src/lib/mock/store.ts` → `mockStore` singleton'ından döner.  
 **Real mod (`MOCK_MODE=false`):** Supabase sorguları çalışır. `_sbMatchToApp()` satırı app shape'ine çevirir.  
@@ -356,6 +364,22 @@ Real modda session `supabase.auth.getSession()` üzerinden yönetilir.
   description: '...',
 }
 ```
+
+### ProfileOverview (Profil Ekranı Verisi)
+> ⚠️ **Önemli:** `ProfileOverview` artık `Profile` extend etmiyor. **İç içe (nested)** yapı:
+```typescript
+interface ProfileOverview {
+  profile:       Partial<Profile>;                          // oyuncu kimliği
+  stats:         Array<{ label: string; value: string }>;  // istatistik çubukları
+  badges:        Badge[];                                   // rozetler
+  recentMatches: ProfileRecentMatch[];                      // son maçlar
+}
+// ProfileRecentMatch: { id, outcome, date, versus, stats, tags? }
+// ProfileStatItem:    { label, value }
+```
+Ekranlar `data.profile.nickname`, `data.stats`, `data.badges`, `data.recentMatches` şeklinde erişir.  
+`buildProfileOverview()` (mockData.js) bu iç içe yapıyı döndürür.  
+`profileService.getProfileOverview()` → `Promise<ProfileOverview>` (cast ile)
 
 ### Profile (Oyuncu Profili)
 ```js
@@ -479,6 +503,18 @@ production:   AAB (App Bundle)
 
 ### ⚠️ App.js Kullanılmıyor
 `App.js` projenin kökünde var ama Expo Router'ın `app/` dizini öncelikli. Entry point `index.js` → `expo-router/entry`. `App.js` eski monolitik versiyon; `BottomTabs` ve `CreateRunSheet` gibi var olmayan bileşenlere başvuruyor. **Silinmedi çünkü referans olarak tutuluyor.**
+
+### ✅ tsc --noEmit Sıfır Hata (3 Haziran 2026)
+`npx tsc --noEmit` tüm dosyalarda temiz çıktı veriyor. Herhangi bir dosyayı düzenlerken tip güvenliğini boz. Problems tabını her session sonunda kontrol et.
+
+**Tip sistemi önemli notlar:**
+- `width: '50%'` inline style → `as DimensionValue` cast gerekiyor (ViewStyle'da string literal yok)
+- `catch (e)` blokları → `e instanceof Error ? e.message : 'default'` pattern'ı kullan (`e && e.message` çalışmaz)
+- `memo(X)` sonrası `X = memo(X)` → TS2630 hatası verir. `const XMemo = memo(X)` şeklinde yap
+- `supabase?.from()` yerine `supabase!.from()` — null kontrolü zaten yapıldı
+- `noUncheckedIndexedAccess: true` → array/object indexlemede `?? fallback` zorunlu
+- `exactOptionalPropertyTypes: true` → `prop={undefined}` yerine prop'u hiç geçme
+- `@react-navigation/bottom-tabs`'dan `BottomTabBarProps` import edilebilir (paket mevcut)
 
 ### ✅ TypeScript Tam Geçiş (Tamamlandı — 29 Mayıs 2026)
 - `tsconfig.json` oluşturuldu: `strict`, `noImplicitAny`, `strictNullChecks`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`
@@ -646,6 +682,89 @@ Maç yoksa courtId, MOCK_COURTS'tan fallback ile çözülür.
 | 14 | `MOCK_MODE = false` (canlı mod aktif) | `src/api/client.js` |
 | 15 | `.env` oluşturuldu, Supabase credentials set edildi | `.env` |
 | 16 | `courtId` create match payload'a eklendi | `CreateRunScreen.js` |
+
+---
+
+### 3 Haziran 2026 — Kritik Bug Fix'ler + TypeScript Problems Temizliği
+
+#### A) Kritik Bug Fix'ler
+
+| # | Hata | Dosya | Düzeltme |
+|---|---|---|---|
+| 1 | **Team leave splice bug** — `indexOf()` -1 döndürdüğünde son eleman siliniyordu | `domains/squad/services.ts:76` | Index kontrolü eklendi: `if (idx >= 0) splice(idx, 1)` |
+| 2 | **Match overbooking** — Supabase'e insert öncesi kapasite kontrolü yoktu | `domains/match/services.ts:joinMatch` | `match_participants` count + `matches.max_players` sorgusu eklendi; doluysa hata fırlatılır |
+| 3 | **Profil güncelleme hata bildirimi yok** — API başarısız olsa da kullanıcıya geri bildirim verilmiyordu | `components/GlobalSheets.tsx:handleSaveProfile` | try/catch + başarı/hata toast'ı eklendi |
+| 4 | **getUnreadCount dead code** — Mock store'a bakıyordu, reaktif değildi | `domains/notifications/services.ts` | Metod kaldırıldı; `useNotificationsCount()` hook'u kullan |
+| 5 | **MapView çift render** — Hem `onRegionChange` hem `onRegionChangeComplete` aynı handler'ı çağırıyordu | `screens/MapScreen.tsx` | `onRegionChange` kaldırıldı, sadece `onRegionChangeComplete` kaldı |
+| 6 | **ProfileScreen null crash** — `data.recentMatches` null/undefined olunca her iki branch'te crash | `screens/ProfileScreen.tsx` | `?? []` ile her iki branch korundu |
+| 7 | **useBootstrap race condition** — Async getSession callback'i unmount sonrası çalışabiliyordu; Supabase subscription cleanup eksikti | `domains/auth/hooks/useBootstrap.ts` | `mounted` flag + her zaman cleanup döndürme pattern'i eklendi |
+| 8 | **Çift join prevention** — Butona hızlı çift tıklamada `mutate()` iki kez çağrılabiliyordu | `components/GlobalSheets.tsx` | `joinMatchPending` + `joinTeamPending` ref guard'ları eklendi |
+
+#### B) TypeScript Problems Tamizliği (`tsc --noEmit` → 0 hata)
+
+| Dosya/Grup | Yapılan |
+|---|---|
+| `app/(auth)/login.tsx`, `register.tsx` | Catch `e.message` → `e instanceof Error ? e.message : '...'` pattern'ı |
+| `app/(auth)/register.tsx` | `supabase` null check → `supabase!` |
+| `app/(tabs)/_layout.tsx` | `TabItem/CustomTabBar = memo(X)` TS2630 → `const X = memo(function...)`, `BottomTabBarProps` ile nav.emit tipi düzeltildi |
+| `app/filter.tsx` | `keyof MatchFilters` tipi, `?? TABS[0]!` undefined guard |
+| `app/onboarding.tsx` | `OnboardingScreen` optional prop'lar (`onLogin?`, `hideAuth?`, `isRegister?`) |
+| `src/components/GlobalSheets.tsx` | `MOCK_MATCHES/MOCK_TEAMS` → `as unknown as Match[]` casting |
+| `src/components/ScreenStates.tsx` | `SkeletonBlock`, `SkeletonList`, `ErrorState` prop tipleri |
+| `src/domains/match/components/CapacitySlider.tsx` | Prop tipler, `LayoutChangeEvent`, `GestureResponderEvent` |
+| `src/domains/profile/services.ts` | Position/archetype/experience `as PlayerPosition` cast; `ProfileOverview` tip uyumu |
+| `src/domains/auth/services.ts` | `mockStore.profile` assignment `as unknown as Profile` |
+| `src/features/*/useFeature.ts` (5 dosya) | `@types/index` → direkt göreceli path (`../../types/domain/match` vb.) |
+| `src/lib/mock/store.ts` | `MOCK_MATCHES/MOCK_TEAMS/MOCK_NOTIFICATIONS` → `as unknown as X[]` |
+| `src/screens/ActivitySheet.tsx` | `ActivityItem` interface, `ActivityType` union, typed ACTIVITIES array |
+| `src/screens/BadgeDetailSheet.tsx` | `Badge` prop tipi |
+| `src/screens/ChatSheet.tsx` | `useRef<FlatList<MsgType>>`, `useState<string\|null>`, `replier!` non-null |
+| `src/screens/HomeScreen.tsx` | `CourtCard.onPress` null guard |
+| `src/screens/LeaderboardSheet.tsx` | `LeaderRow = memo(X)` TS2630 fix, `RankedEntry` tipi, `RANK_COLORS` Record tipi |
+| `src/screens/LoginScreen.tsx` | Prop tipleri |
+| `src/screens/MapScreen.tsx` | `customMapStyle` → spread pattern (exactOptionalPropertyTypes), `Match[]` typed |
+| `src/screens/MatchDetailSheet.tsx` | Prop tipleri, callback'lerde `m` alias (null narrowing), `as DimensionValue` |
+| `src/screens/NotificationsSheet.tsx` | `Notification` prop tipi |
+| `src/screens/OnboardingScreen.tsx` | `OnboardingScreenProps` interface (optional auth props) |
+| `src/screens/PlayerProfileSheet.tsx` | `PlayerProfile` interface, `PlayerStat`, `avatar?: string\|null` → null source |
+| `src/screens/ProfileEditSheet.tsx` | `ProfileEditSheetProps`, `set(key: keyof Profile)` |
+| `src/screens/ProfileScreen.tsx` | Tüm sub-component prop tipleri, `ProfileOverview` kullanımı, `as DimensionValue` |
+| `src/screens/ProUpgradeSheet.tsx` | Prop tipi |
+| `src/screens/RunsScreen.tsx` | FlatList `keyExtractor`/`renderItem` tipleri |
+| `src/screens/SquadScreen.tsx` | Tüm sub-component prop tipleri, `SectionHead/ChemBar/FormBadge/RosterRow/TeamCard = memo(X)` TS2630 fix → `const XM = memo(X)` |
+| `src/screens/TeamDetailSheet.tsx` | `TeamWithExtra` tipi, `td` alias, `as DimensionValue`, Image null source |
+| `src/types/domain/notification.ts` | `icon?: string` eklendi |
+| `src/types/domain/profile.ts` | `ProfileOverview` nested yapıya alındı; `ProfileStatItem`, `ProfileRecentMatch` eklendi |
+| `src/types/domain/squad.ts` | `ranking?: string` eklendi |
+| `src/ui/UiText.tsx` | `export type TextColor` (local → export) |
+| `src/ui/BadgeChip.tsx` | `let accentColor: string` (literal type inference fix) |
+
+---
+
+### 3 Haziran 2026 (2. Oturum) — 10 Yeni Özellik
+
+**Önce çalıştırılması gereken SQL:** `supabase/migrations/20260603_new_features.sql`  
+**Yeni paketler:** `@react-native-community/netinfo`, `expo-image-picker`, `expo-notifications`, `expo-device`  
+**Supabase Storage:** `avatars` bucket (public) oluşturulmalı
+
+| # | Özellik | Yeni Dosyalar | Değişen Dosyalar |
+|---|---|---|---|
+| 1 | **Gerçek Skor Geçmişi** | `match_results` DB tablosu | `match/services.ts`, `useMatches.ts`, `MatchDetailSheet.tsx`, `GlobalSheets.tsx` |
+| 2 | **OVR Gerçek Veriden** | — | `profile/services.ts` (Supabase match_results'tan stats çeker) |
+| 3 | **Offline Mode** | `NetworkStatusBanner.tsx` | `app/_layout.tsx` (NetInfo + TanStack `offlineFirst`) |
+| 4 | **Realtime Maç** | `useRealtimeMatches.ts` | `app/(tabs)/runs.tsx`, `app/(tabs)/index.tsx` |
+| 5 | **Gerçek Chat** | `domains/chat/services.ts`, `useChat.ts`, `types/domain/chat.ts` | `ChatSheet.tsx` (mock→Supabase Realtime) |
+| 6 | **Sezon/Lig** | `types/domain/season.ts` | `leaderboard/services.ts` (seasons tablosu), `useLeaderboard.ts`, `LeaderboardSheet.tsx` |
+| 7 | **Takip Sistemi** | `domains/follow/services.ts`, `useFollow.ts`, `types/domain/follow.ts` | `PlayerProfileSheet.tsx` (follow butonu + sayaçlar) |
+| 8 | **Avatar Yükleme** | `useAvatarUpload.ts` | `ProfileEditSheet.tsx` (avatar picker + Supabase Storage) |
+| 9 | **Push Notifications** | `notifications/push.ts`, `usePushNotifications.ts` | `app/_layout.tsx`, `GlobalSheets.tsx` (join'de hatırlatıcı) |
+| 10 | **Saha Rezervasyonu** | `domains/booking/services.ts`, `useBooking.ts`, `BookingSheet.tsx`, `types/domain/booking.ts` | `MapScreen.tsx` (REZERVE ET butonu), `GlobalSheets.tsx`, `sheets.ts` |
+
+**Yeni Supabase tabloları:** `match_results`, `messages`, `follows`, `seasons`, `push_tokens`, `court_bookings`  
+**profiles tablosuna eklenen kolon:** `avatar_url text`  
+**Yeni `SheetName` değeri:** `'booking'`  
+**`notificationService` değişikliği:** `getUnreadCount()` kaldırıldı, `useNotificationsCount()` hook kullanılmalı  
+**`ProfileOverview` yapısı:** Nested `{ profile, stats, badges, recentMatches }` — `buildProfileOverview(draft, statsOverride?, recentMatchesOverride?)` imzası güncellendi  
 
 ---
 

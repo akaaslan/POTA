@@ -1,11 +1,30 @@
-import React from 'react';
+import React, { useCallback, memo } from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import type { DimensionValue } from 'react-native';
 import { Image } from 'expo-image';
 import { C, F, R, S } from '../theme';
 import { SkeletonList, ErrorState } from '../components/ScreenStates';
 import { t } from '../i18n';
+import type { Team } from '../types/domain/squad';
+import type { Profile } from '../types/domain/profile';
 
-function SectionHead({ num, title, actionLabel, onAction }) {
+interface RosterPlayer { id?: string; name: string; archetype: string; avatar: string; stats?: { label: string; value: string | number }[]; }
+interface FeaturedTeam { name: string; district: string; rosterSize: number; chemistry: number; ranking?: string; recentForm?: { result: string }[]; stats?: { label: string; value: string | number }[]; roster?: RosterPlayer[]; }
+interface SquadData { featuredTeam: FeaturedTeam | null; teams: Team[]; }
+interface SquadScreenProps {
+  data: SquadData | null;
+  onOpenTeam: (team: Team) => void;
+  onOpenChat: () => void;
+  onManageLineup: () => void;
+  onOpenPlayer: (player: Profile) => void;
+  onBrowseTeams: () => void;
+  refreshing: boolean;
+  onRefresh: () => void;
+  isError: boolean;
+  onRetry: () => void;
+}
+
+function SectionHead({ num, title, actionLabel, onAction }: { num: number; title: string; actionLabel?: string; onAction?: () => void }) {
   return (
     <View style={sq.sectionHead}>
       <Text style={sq.sectionNum}>{num < 10 ? '0' + num : String(num)}</Text>
@@ -20,7 +39,7 @@ function SectionHead({ num, title, actionLabel, onAction }) {
   );
 }
 
-function ChemBar({ value }) {
+function ChemBar({ value }: { value: number }) {
   var pct = Math.min(100, Math.max(0, value || 0));
   var barColor = pct >= 90 ? C.lime : pct >= 70 ? C.orange : C.red;
   return (
@@ -31,13 +50,13 @@ function ChemBar({ value }) {
         <Text style={sq.chemPct}>%</Text>
       </View>
       <View style={sq.chemTrack}>
-        <View style={[sq.chemFill, { width: String(pct) + '%', backgroundColor: barColor }]} />
+        <View style={[sq.chemFill, { width: (String(pct) + '%') as DimensionValue, backgroundColor: barColor }]} />
       </View>
     </View>
   );
 }
 
-function FormBadge({ result }) {
+function FormBadge({ result }: { result: string }) {
   return (
     <View style={[sq.formBadge, { backgroundColor: result === 'W' ? C.green : C.red }]}>
       <Text style={sq.formTxt}>{result}</Text>
@@ -45,17 +64,18 @@ function FormBadge({ result }) {
   );
 }
 
-function RosterRow({ player, index, onPress }) {
+function RosterRow({ player, index, onPress }: { player: RosterPlayer; index: number; onPress: (p: RosterPlayer) => void }) {
+  var handlePress = useCallback(function() { onPress(player); }, [onPress, player]);
   return (
-    <TouchableOpacity style={[sq.rosterRow, index > 0 && sq.rosterBorder]} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity style={[sq.rosterRow, index > 0 && sq.rosterBorder]} onPress={handlePress} activeOpacity={0.8}>
       <Text style={sq.rosterIdx}>{String(index + 1).padStart(2, '0')}</Text>
-      <Image source={{ uri: player.avatar }} style={sq.rosterAvatar} />
+      <Image source={{ uri: player.avatar }} style={sq.rosterAvatar} contentFit="cover" cachePolicy="memory-disk" />
       <View style={sq.rosterInfo}>
         <Text style={sq.rosterName}>{player.name}</Text>
         <Text style={sq.rosterArch}>{player.archetype}</Text>
       </View>
       <View style={sq.rosterStats}>
-        {(player.stats || []).map(function(st) {
+        {(player.stats || []).map(function(st: { label: string; value: string | number }) {
           return (
             <View key={st.label} style={sq.rosterStat}>
               <Text style={sq.rosterStatVal}>{st.value}</Text>
@@ -68,9 +88,10 @@ function RosterRow({ player, index, onPress }) {
   );
 }
 
-function TeamCard({ team, isFirst, onPress }) {
+function TeamCard({ team, isFirst, onPress }: { team: Team; isFirst: boolean; onPress: (t: Team) => void }) {
+  var handlePress = useCallback(function() { onPress(team); }, [onPress, team]);
   return (
-    <TouchableOpacity style={[sq.teamCard, isFirst && sq.teamCardFeatured]} onPress={function() { onPress(team); }} activeOpacity={0.85}>
+    <TouchableOpacity style={[sq.teamCard, isFirst && sq.teamCardFeatured]} onPress={handlePress} activeOpacity={0.85}>
       {isFirst ? <View style={sq.teamCardAccent} /> : null}
       <View style={sq.teamCardLeft}>
         <Text style={[sq.teamName, isFirst && sq.teamNameFeatured]}>{team.name}</Text>
@@ -86,7 +107,13 @@ function TeamCard({ team, isFirst, onPress }) {
   );
 }
 
-export default function SquadScreen({ data, onOpenTeam, onOpenChat, onManageLineup, onOpenPlayer, onBrowseTeams, refreshing, onRefresh, isError, onRetry }) {
+const SectionHeadM = memo(SectionHead);
+const ChemBarM = memo(ChemBar);
+const FormBadgeM = memo(FormBadge);
+const RosterRowM = memo(RosterRow);
+const TeamCardM = memo(TeamCard);
+
+export default function SquadScreen({ data, onOpenTeam, onOpenChat, onManageLineup, onOpenPlayer, onBrowseTeams, refreshing, onRefresh, isError, onRetry }: SquadScreenProps) {
   if (isError) {
     return <ErrorState message={t('squad.error')} onRetry={onRetry} />;
   }
@@ -115,8 +142,12 @@ export default function SquadScreen({ data, onOpenTeam, onOpenChat, onManageLine
         showsVerticalScrollIndicator={false}
         contentContainerStyle={sq.scroll}
         data={teams}
-        keyExtractor={function(item) { return item.id; }}
-        renderItem={function(info) { return <TeamCard team={info.item} isFirst={info.index === 0} onPress={onOpenTeam} />; }}
+        keyExtractor={useCallback(function(item: Team) { return item.id; }, [])}
+        renderItem={useCallback(function(info: { item: Team; index: number }) { return <TeamCardM team={info.item} isFirst={info.index === 0} onPress={onOpenTeam} />; }, [onOpenTeam])}
+        maxToRenderPerBatch={6}
+        initialNumToRender={5}
+        windowSize={5}
+        removeClippedSubviews={true}
         refreshControl={
           <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={C.lime} colors={[C.lime]} />
         }
@@ -140,12 +171,12 @@ export default function SquadScreen({ data, onOpenTeam, onOpenChat, onManageLine
                   <Text style={sq.featuredRank}>{featured.ranking}</Text>
                   {form.length > 0 ? (
                     <View style={sq.formRow}>
-                      {form.slice(-5).map(function(r, i) { return <FormBadge key={i} result={r} />; })}
+                      {form.slice(-5).map(function(r: string, i: number) { return <FormBadgeM key={i} result={r} />; })}
                     </View>
                   ) : null}
                 </View>
               </View>
-              <ChemBar value={featured.chemistry} />
+              <ChemBarM value={featured.chemistry} />
               {featured.stats && featured.stats.length > 0 ? (
                 <View style={sq.featuredStats}>
                   {featured.stats.map(function(st, i) {
@@ -170,10 +201,10 @@ export default function SquadScreen({ data, onOpenTeam, onOpenChat, onManageLine
             {/* Roster */}
             {featured.roster && featured.roster.length > 0 ? (
               <View style={sq.section}>
-                <SectionHead num={1} title={t('squad.section_roster')} />
+                <SectionHeadM num={1} title={t('squad.section_roster')} />
                 <View style={sq.rosterCard}>
                   {featured.roster.map(function(player, index) {
-                    return <RosterRow key={player.id || index} player={player} index={index} onPress={function() { if (onOpenPlayer) onOpenPlayer(player); }} />;
+                    return <RosterRowM key={(player as RosterPlayer).id || index} player={player as RosterPlayer} index={index} onPress={function(p) { onOpenPlayer(p as unknown as Profile); }} />;
                   })}
                 </View>
               </View>

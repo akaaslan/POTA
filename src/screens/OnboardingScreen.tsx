@@ -4,17 +4,20 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Keyboa
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
 import { api } from '../api/client';
+import type { ProfileDraft } from '../types/domain/profile';
 
-var POSITIONS   = t('profileEdit.positions');
-var ARCHETYPES  = t('profileEdit.archetypes');
-var EXPERIENCES = t('profileEdit.levels');
-var DISTRICTS   = t('profileEdit.districts');
+var POSITIONS   = t('profileEdit.positions') as string[];
+var ARCHETYPES  = t('profileEdit.archetypes') as string[];
+var EXPERIENCES = t('profileEdit.levels') as string[];
+var DISTRICTS   = t('profileEdit.districts') as string[];
 
-function FieldLabel({ children }) {
+interface FieldLabelProps { children: React.ReactNode; }
+function FieldLabel({ children }: FieldLabelProps) {
   return <Text style={ob.label}>{children}</Text>;
 }
 
-function ChipRow({ options, selected, onSelect }) {
+interface ChipRowProps { options: string[]; selected: string; onSelect: (val: string) => void; }
+function ChipRow({ options, selected, onSelect }: ChipRowProps) {
   return (
     <View style={ob.chipRow}>
       {options.map(function(opt) {
@@ -29,7 +32,8 @@ function ChipRow({ options, selected, onSelect }) {
   );
 }
 
-function FieldGroup({ label, children }) {
+interface FieldGroupProps { label: string; children: React.ReactNode; }
+function FieldGroup({ label, children }: FieldGroupProps) {
   return (
     <View style={ob.field}>
       <FieldLabel>{label}</FieldLabel>
@@ -38,8 +42,18 @@ function FieldGroup({ label, children }) {
   );
 }
 
-export default function OnboardingScreen({ draft, onChange, onSubmit, onLogin, submitting, hideAuth, isRegister }) {
-  function set(key, val) {
+interface OnboardingScreenProps {
+  draft: ProfileDraft;
+  onChange: (draft: ProfileDraft) => void;
+  onSubmit: () => void | Promise<void>;
+  submitting: boolean;
+  onLogin?: () => void;
+  hideAuth?: boolean;
+  isRegister?: boolean;
+}
+
+export default function OnboardingScreen({ draft, onChange, onSubmit, onLogin, submitting, hideAuth, isRegister }: OnboardingScreenProps) {
+  function set(key: keyof ProfileDraft, val: string) {
     onChange(Object.assign({}, draft, { [key]: val }));
   }
   return (

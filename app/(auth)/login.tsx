@@ -17,7 +17,7 @@ export default function LoginRoute() {
   var [loading, setLoading]             = useState(false);
   var [googleLoading, setGoogleLoading] = useState(false);
 
-  async function handleLogin(email, password) {
+  async function handleLogin(email: string, password: string) {
     if (!email || !email.includes('@')) {
       showToast('Geçerli bir e-posta adresi girin.', 'warn');
       return;
@@ -38,7 +38,7 @@ export default function LoginRoute() {
       qc.invalidateQueries();
       router.replace('/(tabs)/');
     } catch (e) {
-      var msg = e && e.message ? e.message : 'Giriş yapılamadı. E-posta veya şifre hatalı.';
+      var msg = e instanceof Error ? e.message : 'Giriş yapılamadı. E-posta veya şifre hatalı.';
       showToast(msg, 'error');
     } finally {
       setLoading(false);
@@ -59,7 +59,7 @@ export default function LoginRoute() {
         router.replace('/(tabs)/');
       }
     } catch (e) {
-      var msg = e && e.message ? e.message : 'Google girişi başarısız oldu.';
+      var msg = e instanceof Error ? e.message : 'Google girişi başarısız oldu.';
       showToast(msg, 'error');
     } finally {
       setGoogleLoading(false);

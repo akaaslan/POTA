@@ -28,9 +28,9 @@ interface MockStore {
 export const mockStore: MockStore = {
   session:        null,
   profile:        { ...MOCK_PROFILE } as Profile,
-  matches:        MOCK_MATCHES.map((m) => ({ ...m })) as Match[],
-  teams:          MOCK_TEAMS.map((t) => ({ ...t })) as Team[],
-  notifications:  MOCK_NOTIFICATIONS.map((n) => ({ ...n })) as Notification[],
+  matches:        MOCK_MATCHES.map((m) => ({ ...m })) as unknown as Match[],
+  teams:          MOCK_TEAMS.map((t) => ({ ...t })) as unknown as Team[],
+  notifications:  MOCK_NOTIFICATIONS.map((n) => ({ ...n })) as unknown as Notification[],
   joinedMatchIds: [],
   joinedTeamIds:  [],
 };

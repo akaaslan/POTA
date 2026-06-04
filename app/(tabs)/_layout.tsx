@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useCallback, memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import AppHeader from '../../src/components/Header';
 import { t } from '../../src/i18n';
 import { C, R, S, F } from '../../src/theme';
@@ -14,45 +15,59 @@ var TAB_CONFIG = [
   { name: 'profile', label: t('tabs.profile'), icon: '★' },
 ];
 
-function CustomTabBar({ state, navigation }) {
+interface TabItemProps {
+  state: BottomTabBarProps['state'];
+  descriptors: BottomTabBarProps['descriptors'];
+  navigation: BottomTabBarProps['navigation'];
+  routeIndex: number;
+}
+
+const TabItem = memo(function TabItem({ state, navigation, routeIndex }: TabItemProps) {
+  var route     = state.routes[routeIndex]!;
+  var isFocused = state.index === routeIndex;
+  var tab = TAB_CONFIG.find(function(cfg) { return cfg.name === route.name; }) ?? TAB_CONFIG[routeIndex];
+  var handlePress = useCallback(function() {
+    var event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(route.name, undefined);
+    }
+  }, [isFocused, navigation, route]);
+  return (
+    <TouchableOpacity
+      key={route.key}
+      style={tb.tab}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      {isFocused ? <View style={tb.activeBar} /> : <View style={tb.inactiveBar} />}
+      <Text style={[tb.icon, isFocused && tb.iconActive]}>{tab ? tab.icon : ''}</Text>
+      <Text style={[tb.label, isFocused && tb.labelActive]}>{tab ? tab.label : route.name.toUpperCase()}</Text>
+    </TouchableOpacity>
+  );
+});
+
+const CustomTabBar = memo(function CustomTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   var insets = useSafeAreaInsets();
   return (
     <View style={[tb.root, { paddingBottom: insets.bottom > 0 ? insets.bottom : 14 }]}>
-      {/* Top neon separator */}
       <View style={tb.topBorder} />
-      {state.routes.map(function(route, index) {
-        var tab = TAB_CONFIG.find(function(cfg) { return cfg.name === route.name; }) || TAB_CONFIG[index];
-        var isFocused = state.index === index;
+      {state.routes.map(function(_route, index) {
         return (
-          <TouchableOpacity
-            key={route.key}
-            style={tb.tab}
-            onPress={function() {
-              var event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-              if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            {/* Neon top indicator line */}
-            {isFocused ? <View style={tb.activeBar} /> : <View style={tb.inactiveBar} />}
-            <Text style={[tb.icon, isFocused && tb.iconActive]}>{tab ? tab.icon : ''}</Text>
-            <Text style={[tb.label, isFocused && tb.labelActive]}>{tab ? tab.label : route.name.toUpperCase()}</Text>
-          </TouchableOpacity>
+          <TabItem key={state.routes[index]!.key} state={state} descriptors={descriptors} navigation={navigation} routeIndex={index} />
         );
       })}
     </View>
   );
-}
+});
 
 export default function TabLayout() {
+  var renderTabBar = useCallback(function(props: BottomTabBarProps) { return <CustomTabBar {...props} />; }, []);
   return (
     <SafeAreaView style={tl.root} edges={['top']}>
       <AppHeader />
       <Tabs
         screenOptions={{ headerShown: false }}
-        tabBar={function(props) { return <CustomTabBar {...props} />; }}
+        tabBar={renderTabBar}
       >
         <Tabs.Screen name="index"   options={{ title: 'Ana Sayfa' }} />
         <Tabs.Screen name="runs"    options={{ title: 'Maçlar' }} />

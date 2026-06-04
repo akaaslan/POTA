@@ -62,14 +62,22 @@ export function useCreateMatch() {
   });
 }
 
+interface ReportScorePayload {
+  matchId:     ID;
+  outcome:     'win' | 'loss' | 'draw';
+  scores?:     { scoreA: number; scoreB: number };
+  playerStats?: { points: number; rebounds: number; assists: number; mvp?: boolean };
+}
+
 export function useReportScore() {
   const qc        = useQueryClient();
   const showToast = useUIStore((s) => s.showToast);
   return useMutation({
-    mutationFn: (payload: { matchId: ID; outcome: unknown }) =>
-      matchService.reportScore(payload.matchId, payload.outcome),
+    mutationFn: (payload: ReportScorePayload) =>
+      matchService.reportScore(payload.matchId, payload.outcome, payload.scores, payload.playerStats),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['leaderboard'] });
       showToast(t('toast.report_score_success'), 'success');
     },
     onError: () => showToast(t('toast.report_score_error'), 'error'),

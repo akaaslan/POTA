@@ -1,17 +1,19 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import type { LayoutChangeEvent, GestureResponderEvent } from 'react-native';
 import { C, F, S } from '../../../theme';
 
 var THUMB_D = 22;
 
-export function CapacitySlider({ value, min, max, onChange }) {
+interface CapacitySliderProps { value: number; min: number; max: number; onChange: (v: number) => void; }
+export function CapacitySlider({ value, min, max, onChange }: CapacitySliderProps) {
   var trackWRef = useRef(1);
   var [trackW, setTrackW] = useState(1);
 
   var pct     = max > min ? (value - min) / (max - min) : 0;
   var thumbPx = Math.max(0, pct * (trackW - THUMB_D));
 
-  function calcAndEmit(locationX) {
+  function calcAndEmit(locationX: number) {
     var w = trackWRef.current;
     if (w <= THUMB_D) return;
     var p   = Math.max(0, Math.min(1, locationX / w));
@@ -19,7 +21,7 @@ export function CapacitySlider({ value, min, max, onChange }) {
     onChange(val);
   }
 
-  function onLayout(e) {
+  function onLayout(e: LayoutChangeEvent) {
     var w = e.nativeEvent.layout.width;
     trackWRef.current = w;
     setTrackW(w);

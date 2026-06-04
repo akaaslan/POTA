@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
-import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
+import MapView, { Marker, Circle, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
 import { MOCK_COURTS } from '../data/mockData';
 import { useRunsFeed } from '../hooks/useMatches';
+import type { Match } from '../types/domain/match';
 
-var TIER_COLOR = {
+const TIER_COLOR: Record<string, string> = {
   'Açık Saha':    '#4ADE80',
   'Orta Seviye':  '#A8CC00',
   'Yarı-Pro':     '#FBBF24',
@@ -24,8 +25,16 @@ var ISTANBUL_REGION = {
   longitudeDelta: 0.28,
 };
 
+interface Court {
+  id: string; name: string; shortName: string; district: string;
+  lat: number; lng: number; players: number; capacity: number;
+  status: string; tier: string; popular: boolean; distance: string;
+  desc: string; image: string;
+}
+type UserLocation = { lat: number; lng: number };
+
 // Kalabalık yoğunluğuna göre ısı rengi
-function heatColor(players, capacity) {
+function heatColor(players: number, capacity: number): string {
   var pct = capacity > 0 ? players / capacity : 0;
   if (pct >= 0.75) return '#F87171';   // kırmızı — dolu
   if (pct >= 0.5)  return '#FF7A2F';   // turuncu
@@ -34,7 +43,8 @@ function heatColor(players, capacity) {
 }
 
 // Özel saha marker bileşeni
-function CourtMarker({ court, isSelected, onPress }) {
+interface CourtMarkerProps { court: Court; isSelected: boolean; onPress: () => void; }
+function CourtMarker({ court, isSelected, onPress }: CourtMarkerProps) {
   // Start tracking so the custom view renders on first load,
   // then disable after a short delay to avoid per-frame re-renders.
   var [tracked, setTracked] = useState(true);
@@ -61,7 +71,8 @@ function CourtMarker({ court, isSelected, onPress }) {
   );
 }
 
-function UserMarker({ coordinate }) {
+interface UserMarkerProps { coordinate: { latitude: number; longitude: number }; }
+function UserMarker({ coordinate }: UserMarkerProps) {
   var [tracked, setTracked] = useState(true);
   useEffect(function() {
     var timer = setTimeout(function() { setTracked(false); }, 500);
@@ -76,17 +87,21 @@ function UserMarker({ coordinate }) {
   );
 }
 
-export default function MapScreen({ onOpenMatch }) {
+interface MapScreenProps {
+  onOpenMatch?:   (match: Match) => void;
+  onOpenBooking?: (courtId: string, courtName: string) => void;
+}
+export default function MapScreen({ onOpenMatch, onOpenBooking }: MapScreenProps) {
   var insets = useSafeAreaInsets();
   var { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions();
-  var [selected, setSelected] = useState(null);
-  var [userLocation, setUserLocation] = useState(null);
-  var [mapRegion, setMapRegion] = useState(ISTANBUL_REGION);
-  var mapRegionRef = useRef(ISTANBUL_REGION);
-  var rafRef = useRef(null);
-  var mapRef = useRef(null);
+  var [selected, setSelected] = useState<Court | null>(null);
+  var [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  var [mapRegion, setMapRegion] = useState<Region>(ISTANBUL_REGION);
+  var mapRegionRef = useRef<Region>(ISTANBUL_REGION);
+  var rafRef = useRef<number | null>(null);
+  var mapRef = useRef<MapView>(null);
 
-  function handleRegionChange(region) {
+  function handleRegionChange(region: Region) {
     mapRegionRef.current = region;
     if (!rafRef.current) {
       rafRef.current = requestAnimationFrame(function() {
@@ -96,14 +111,14 @@ export default function MapScreen({ onOpenMatch }) {
     }
   }
   var matchFeed = useRunsFeed();
-  var liveMatches = (matchFeed.data && matchFeed.data.matches) || [];
+  var liveMatches: Match[] = (matchFeed.data && matchFeed.data.matches) || [];
 
   // Augment MOCK_COURTS with real player counts and live status.
   // If no live data yet, keep static mock values so markers remain visible.
   var COURTS = MOCK_COURTS.map(function(court) {
     var courtMatches = liveMatches.filter(function(m) { return m.district === court.district; });
     if (!courtMatches.length) return court; // keep original players/status from MOCK_COURTS
-    var totalPlayers = courtMatches.reduce(function(sum, m) { return sum + (m.playersJoined || 0); }, 0);
+    var totalPlayers = courtMatches.reduce(function(sum: number, m) { return sum + (m.playersJoined ?? 0); }, 0);
     var hasLive = courtMatches.some(function(m) { return m.status === 'live'; });
     return Object.assign({}, court, {
       players: totalPlayers,
@@ -183,15 +198,14 @@ export default function MapScreen({ onOpenMatch }) {
     <View style={m.root}>
       <MapView
         ref={mapRef}
-        provider={PROVIDER_GOOGLE}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
         style={StyleSheet.absoluteFillObject}
         initialRegion={ISTANBUL_REGION}
-        customMapStyle={DARK_MAP_STYLE}
-        onRegionChange={handleRegionChange}
+        {...(Platform.OS === 'android' ? { customMapStyle: DARK_MAP_STYLE } : {})}
         onRegionChangeComplete={handleRegionChange}
       >
         {COURTS.map(function(court) {
-          var isSelected = selected && selected.id === court.id;
+          var isSelected = !!selected && selected.id === court.id;
           var color      = heatColor(court.players, court.capacity);
           return (
             <React.Fragment key={court.id}>
@@ -264,25 +278,36 @@ export default function MapScreen({ onOpenMatch }) {
               <View style={m.progressTrack}>
                 <View style={[
                   m.progressFill,
-                  { width: (Math.round(selected.players / Math.max(selected.capacity, 1) * 100)) + '%',
-                    backgroundColor: TIER_COLOR[selected.tier] || C.lime },
+                  { width: `${Math.round(selected.players / Math.max(selected.capacity, 1) * 100)}%`,
+                    backgroundColor: TIER_COLOR[selected.tier] ?? C.lime },
                 ]} />
               </View>
               <Text style={m.progressTxt}>{selected.players}/{selected.capacity} {t('map.players_suffix')}</Text>
             </View>
-            {/* Maçı Gör butonu */}
-            {onOpenMatch ? (function() {
-              var courtMatch = liveMatches.find(function(match) {
-                return match.district === selected.district && match.status === 'live';
-              }) || liveMatches.find(function(match) {
-                return match.district === selected.district;
-              });
-              return courtMatch ? (
-                <TouchableOpacity style={m.actionBtn} onPress={function() { onOpenMatch(courtMatch); }} activeOpacity={0.85}>
-                  <Text style={m.actionTxt}>{t('map.see_match')}</Text>
+            {/* Aksiyon butonları */}
+            <View style={m.actionRow}>
+              {onOpenMatch ? (function() {
+                var courtMatch = liveMatches.find(function(match) {
+                  return match.district === selected!.district && match.status === 'live';
+                }) || liveMatches.find(function(match) {
+                  return match.district === selected!.district;
+                });
+                return courtMatch ? (
+                  <TouchableOpacity style={m.actionBtn} onPress={function() { onOpenMatch(courtMatch!); }} activeOpacity={0.85}>
+                    <Text style={m.actionTxt}>{t('map.see_match')}</Text>
+                  </TouchableOpacity>
+                ) : null;
+              })() : null}
+              {onOpenBooking ? (
+                <TouchableOpacity
+                  style={m.bookingBtn}
+                  onPress={function() { onOpenBooking(selected!.id, selected!.name); }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={m.bookingTxt}>REZERVE ET  📅</Text>
                 </TouchableOpacity>
-              ) : null;
-            })() : null}
+              ) : null}
+            </View>
           </View>
         </View>
       ) : null}
@@ -320,8 +345,8 @@ export default function MapScreen({ onOpenMatch }) {
           onPress={function() {
             if (mapRef.current) {
               mapRef.current.animateToRegion({
-                latitude:      userLocation.lat,
-                longitude:     userLocation.lng,
+                latitude:      userLocation!.lat,
+                longitude:     userLocation!.lng,
                 latitudeDelta:  0.03,
                 longitudeDelta: 0.03,
               }, 600);
@@ -440,8 +465,11 @@ var m = StyleSheet.create({
   progressTrack: { flex: 1, height: 4, backgroundColor: C.border, borderRadius: 2, overflow: 'hidden' },
   progressFill:  { height: '100%', borderRadius: 2 },
   progressTxt:   { color: C.textDim, fontSize: F.xs, fontWeight: '700', minWidth: 80, textAlign: 'right' },
-  actionBtn: { marginTop: 10, backgroundColor: C.lime, borderRadius: R.sm, paddingVertical: 9, alignItems: 'center' },
+  actionRow: { flexDirection: 'row', gap: S.sm, marginTop: 10 },
+  actionBtn: { flex: 1, backgroundColor: C.lime, borderRadius: R.sm, paddingVertical: 9, alignItems: 'center' },
   actionTxt: { color: '#000', fontSize: F.xs, fontWeight: '900', letterSpacing: 1.5 },
+  bookingBtn: { flex: 1, borderWidth: 1, borderColor: C.borderLight, borderRadius: R.sm, paddingVertical: 9, alignItems: 'center' },
+  bookingTxt: { color: C.textDim, fontSize: F.xs, fontWeight: '800', letterSpacing: 1 },
 
   legend: {
     position: 'absolute',

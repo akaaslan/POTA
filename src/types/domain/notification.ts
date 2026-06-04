@@ -19,6 +19,7 @@ export interface Notification {
   body: string;
   read: boolean;
   time: string;
+  icon?: string;
   /** Optional deep-link target (matchId, teamId, etc.) */
   targetId?: ID;
 }

@@ -73,7 +73,8 @@ export const squadService = {
     const { error } = await supabase!.from('team_members')
       .delete().eq('team_id', teamId).eq('user_id', userId);
     if (error) throw error;
-    _sbJoinedTeamIds.splice(_sbJoinedTeamIds.indexOf(teamId), 1);
+    const idx = _sbJoinedTeamIds.indexOf(teamId);
+    if (idx >= 0) _sbJoinedTeamIds.splice(idx, 1);
     return { id: teamId };
   },
 

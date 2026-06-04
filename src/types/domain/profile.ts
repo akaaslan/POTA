@@ -32,10 +32,29 @@ export interface Profile {
   avatar?: Nullable<string>;
 }
 
-export interface ProfileOverview extends Profile {
+export interface ProfileStatItem {
+  label: string;
+  value: string;
+}
+
+export interface ProfileRecentMatch {
+  id: string;
+  outcome: string;
+  date: string;
+  versus: string;
+  matchName?: string;
+  scoreA?: number;
+  scoreB?: number;
+  stats: Array<{ label: string; value: string | number }>;
+  tags?: string[];
+  mvp?: boolean;
+}
+
+export interface ProfileOverview {
+  profile: Partial<Profile>;
+  stats: ProfileStatItem[];
   badges: Badge[];
-  stats: PlayerStats;
-  recentMatches: RecentMatchSummary[];
+  recentMatches: ProfileRecentMatch[];
 }
 
 export interface PlayerStats {

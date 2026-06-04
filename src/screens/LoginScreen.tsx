@@ -6,7 +6,14 @@ import {
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
 
-export default function LoginScreen({ onLogin, onGoogle, onRegister, loading, googleLoading }) {
+interface LoginScreenProps {
+  onLogin: (email: string, password: string) => void | Promise<void>;
+  onGoogle: () => void | Promise<void>;
+  onRegister: () => void;
+  loading: boolean;
+  googleLoading: boolean;
+}
+export default function LoginScreen({ onLogin, onGoogle, onRegister, loading, googleLoading }: LoginScreenProps) {
   var [email, setEmail]       = React.useState('');
   var [password, setPassword] = React.useState('');
 

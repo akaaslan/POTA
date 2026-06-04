@@ -1,20 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo, memo } from 'react';
 import { View, Text, ScrollView, FlatList, TouchableOpacity, TextInput, StyleSheet, RefreshControl } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { C, F, R, S } from '../theme';
 import { ErrorState } from '../components/ScreenStates';
 import { t } from '../i18n';
+import { SKILL_TIER_COLOR as TIER_COLOR } from '@shared/constants/tier';
+import type { Match, MatchFilters } from '../types/domain/match';
 
-var TIER_COLOR = {
-  'Açık Saha': '#4ADE80',
-  'Orta Seviye': '#A8CC00',
-  'Yarı-Pro': '#FBBF24',
-  'Pro-Am': '#FF7A2F',
-  'Elit': '#F87171',
-};
+type RunsFeed = { matches: Match[] };
 
-function FilterPill({ label, value, onPress }) {
+interface FilterPillProps { label: string; value: string | undefined; onPress: () => void; }
+interface RunCardProps    { match: Match; onPress: (m: Match) => void; }
+interface EmptyStateProps { hasFilters: boolean; onReset: () => void; }
+interface RunsScreenProps {
+  data: RunsFeed | null;
+  activeFilters: MatchFilters | null;
+  onOpenMatch: (m: Match) => void;
+  onCreateRun: () => void;
+  onOpenFilter: (key: string) => void;
+  onClearFilters: () => void;
+  onUpgradePro: () => void;
+  refreshing: boolean;
+  onRefresh: () => void;
+  isError: boolean;
+  onRetry: () => void;
+}
+
+function _FilterPill({ label, value, onPress }: FilterPillProps) {
   var active = value !== 'Tümü' && value !== undefined;
   return (
     <TouchableOpacity
@@ -27,18 +40,20 @@ function FilterPill({ label, value, onPress }) {
     </TouchableOpacity>
   );
 }
+const FilterPill = memo(_FilterPill);
 
-function RunCard({ match, onPress }) {
+function _RunCard({ match, onPress }: RunCardProps) {
   var filled = match.playersJoined;
   var total = match.capacity;
   var pct = total > 0 ? (filled / total) : 0;
   var spotsLeft = total - filled;
   var tierColor = TIER_COLOR[match.skillLevel] || C.lime;
+  var handlePress = useCallback(function() { onPress(match); }, [match, onPress]);
   return (
-    <TouchableOpacity style={r.card} onPress={function() { onPress(match); }} activeOpacity={0.88}>
+    <TouchableOpacity style={r.card} onPress={handlePress} activeOpacity={0.88}>
       {/* Left-side tier accent bar */}
       <View style={[r.tierBar, { backgroundColor: tierColor }]} />
-      <Image source={{ uri: match.image }} style={r.thumb} />
+      <Image source={{ uri: match.image }} style={r.thumb} contentFit="cover" cachePolicy="memory-disk" />
       <View style={r.cardBody}>
         <View style={r.cardTop}>
           <View style={{ flex: 1 }}>
@@ -59,13 +74,13 @@ function RunCard({ match, onPress }) {
         <View style={r.cardBottom}>
           <View style={r.progressCol}>
             <View style={r.progressTrack}>
-              <View style={[r.progressFill, { width: (Math.round(pct * 100)) + '%', backgroundColor: tierColor }]} />
+              <View style={[r.progressFill, { width: `${Math.round(pct * 100)}%`, backgroundColor: tierColor }]} />
             </View>
             <Text style={r.playersTxt}>{filled}/{total}  ·  {spotsLeft} yer kaldı</Text>
           </View>
           <View style={r.cardRight}>
             <Text style={[r.feeTxt, { color: tierColor }]}>{match.feeType === 'Ucretli' ? match.fee + ' ₺' : t('common.free')}</Text>
-            <TouchableOpacity style={[r.joinBtn, { backgroundColor: tierColor === '#4ADE80' ? C.lime : tierColor }]} onPress={function() { onPress(match); }}>
+            <TouchableOpacity style={[r.joinBtn, { backgroundColor: tierColor === '#4ADE80' ? C.lime : tierColor }]} onPress={handlePress}>
               <Text style={r.joinBtnTxt}>{t('runs.join_btn')}</Text>
             </TouchableOpacity>
           </View>
@@ -74,8 +89,9 @@ function RunCard({ match, onPress }) {
     </TouchableOpacity>
   );
 }
+const RunCard = memo(_RunCard);
 
-function EmptyState({ hasFilters, onReset }) {
+function _EmptyState({ hasFilters, onReset }: EmptyStateProps) {
   return (
     <View style={r.empty}>
       <Text style={r.emptyNum}>00</Text>
@@ -89,33 +105,43 @@ function EmptyState({ hasFilters, onReset }) {
     </View>
   );
 }
+const EmptyState = _EmptyState;
 
-export default function RunsScreen({ data, activeFilters, onOpenMatch, onCreateRun, onOpenFilter, onClearFilters, onUpgradePro, refreshing, onRefresh, isError, onRetry }) {
+export default function RunsScreen({ data, activeFilters, onOpenMatch, onCreateRun, onOpenFilter, onClearFilters, onUpgradePro, refreshing, onRefresh, isError, onRetry }: RunsScreenProps) {
   var insets = useSafeAreaInsets();
   var [searchQuery, setSearchQuery] = useState('');
   var filters = activeFilters || { district: 'Tümü', skill: 'Tümü', format: 'Tümü' };
   var matches = data ? (data.matches || []) : null;
   var hasFilters = filters.district !== 'Tümü' || filters.skill !== 'Tümü' || filters.format !== 'Tümü';
 
-  var filtered = matches;
-  if (filtered !== null && searchQuery.trim()) {
-    var q = searchQuery.toLowerCase();
-    filtered = matches.filter(function(m) {
+  var filtered = useMemo(function() {
+    if (matches === null) return null;
+    var q = searchQuery.trim().toLowerCase();
+    if (!q) return matches;
+    return matches.filter(function(m) {
       return (
         m.title.toLowerCase().includes(q) ||
         m.courtName.toLowerCase().includes(q) ||
         m.district.toLowerCase().includes(q)
       );
     });
-  }
+  }, [matches, searchQuery]);
+
+  var keyExtractor = useCallback(function(item: Match) { return item.id; }, []);
+  var renderItem   = useCallback(function(info: { item: Match }) { return <RunCard match={info.item} onPress={onOpenMatch} />; }, [onOpenMatch]);
+  var onFilterDistrict = useCallback(function() { onOpenFilter('district'); }, [onOpenFilter]);
+  var onFilterSkill    = useCallback(function() { onOpenFilter('skill'); }, [onOpenFilter]);
+  var onFilterFormat   = useCallback(function() { onOpenFilter('format'); }, [onOpenFilter]);
+  var onClearSearch    = useCallback(function() { setSearchQuery(''); }, []);
+  var onResetAll       = useCallback(function() { setSearchQuery(''); onClearFilters(); }, [onClearFilters]);
 
   return (
     <View style={r.root}>
       <View style={r.filterBar}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={r.filterScroll}>
-          <FilterPill label={t('runs.filter_district')} value={filters.district} onPress={function() { onOpenFilter('district'); }} />
-          <FilterPill label={t('runs.filter_skill')} value={filters.skill} onPress={function() { onOpenFilter('skill'); }} />
-          <FilterPill label={t('runs.filter_format')} value={filters.format} onPress={function() { onOpenFilter('format'); }} />
+          <FilterPill label={t('runs.filter_district')} value={filters.district} onPress={onFilterDistrict} />
+          <FilterPill label={t('runs.filter_skill')} value={filters.skill} onPress={onFilterSkill} />
+          <FilterPill label={t('runs.filter_format')} value={filters.format} onPress={onFilterFormat} />
           {hasFilters ? (
             <TouchableOpacity style={r.clearPill} onPress={onClearFilters} activeOpacity={0.8}>
               <Text style={r.clearPillTxt}>{t('runs.filter_clear')}</Text>
@@ -133,7 +159,7 @@ export default function RunsScreen({ data, activeFilters, onOpenMatch, onCreateR
             clearButtonMode="while-editing"
           />
           {searchQuery.length > 0 ? (
-            <TouchableOpacity onPress={function() { setSearchQuery(''); }} style={r.searchClear}>
+            <TouchableOpacity onPress={onClearSearch} style={r.searchClear}>
               <Text style={r.searchClearTxt}>✕</Text>
             </TouchableOpacity>
           ) : null}
@@ -158,15 +184,19 @@ export default function RunsScreen({ data, activeFilters, onOpenMatch, onCreateR
           refreshControl={<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={C.lime} colors={[C.lime]} />}
           contentContainerStyle={{ flex: 1 }}
         >
-          <EmptyState hasFilters={hasFilters || searchQuery.length > 0} onReset={function() { setSearchQuery(''); onClearFilters(); }} />
+          <EmptyState hasFilters={hasFilters || searchQuery.length > 0} onReset={onResetAll} />
         </ScrollView>
       ) : (
         <FlatList
           showsVerticalScrollIndicator={false}
           contentContainerStyle={r.scroll}
           data={filtered}
-          keyExtractor={function(item) { return item.id; }}
-          renderItem={function(info) { return <RunCard match={info.item} onPress={onOpenMatch} />; }}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          maxToRenderPerBatch={8}
+          initialNumToRender={6}
+          windowSize={5}
+          removeClippedSubviews={true}
           refreshControl={
             <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={C.lime} colors={[C.lime]} />
           }

@@ -79,11 +79,20 @@ export interface TrendingCourt {
 // ─── Squad Activity (home feed variant) ──────────────────────────────────────
 export interface SquadActivity {
   id: ID;
-  type: 'joined' | 'left' | 'created';
-  userId: ID;
-  nickname: string;
-  matchTitle: string;
-  timestamp: string;
+  /** Display name of the player who triggered the activity */
+  user: string;
+  /** Short verb / action text */
+  action: string;
+  /** Highlighted noun (e.g. match title, rank name) */
+  highlight: string;
+  /** Relative timestamp string e.g. "5 DK ÖNCE" */
+  time: string;
+  /** District name */
+  location: string;
+  /** Avatar URL */
+  avatar: string;
+  /** Whether to show a trailing › arrow */
+  arrow: boolean;
 }
 
 // ─── Home Feed ────────────────────────────────────────────────────────────────

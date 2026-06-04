@@ -56,7 +56,7 @@ export default function RegisterRoute() {
           experience:    currentDraft.experience   || '',
           bio:           currentDraft.bio          || '',
         };
-        var insertResult = await supabase.from('profiles').upsert(profileInsert);
+        var insertResult = await supabase!.from('profiles').upsert(profileInsert);
         if (insertResult.error) throw insertResult.error;
         sess = Object.assign({}, session, { profile: profileInsert, needsProfile: false });
       } else if (api.isMock()) {
@@ -68,7 +68,7 @@ export default function RegisterRoute() {
       qc.invalidateQueries();
       router.replace('/(tabs)/');
     } catch (e) {
-      var msg = e && e.message ? e.message : 'Kayıt oluşturulamadı. Tekrar dene.';
+      var msg = e instanceof Error ? e.message : 'Kayıt oluşturulamadı. Tekrar dene.';
       showToast(msg, 'error');
     } finally {
       setSubmitting(false);

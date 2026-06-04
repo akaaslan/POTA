@@ -177,6 +177,16 @@ export const matchService = {
     }
     const userId = await getCurrentUserId(supabase);
     if (!userId) throw new Error('Oturum gerekli');
+    const [{ count, error: countErr }, { data: matchRow, error: matchErr }] = await Promise.all([
+      supabase!.from('match_participants').select('*', { count: 'exact', head: true }).eq('match_id', matchId),
+      supabase!.from('matches').select('max_players').eq('id', matchId).single(),
+    ]);
+    if (countErr) throw countErr;
+    if (matchErr) throw matchErr;
+    const maxPlayers = matchRow ? (matchRow as unknown as { max_players: number }).max_players ?? 10 : 10;
+    if ((count ?? 0) >= maxPlayers) {
+      throw new Error('Maç kapasitesi dolu');
+    }
     const { error } = await supabase!.from('match_participants').insert({ match_id: matchId, user_id: userId });
     if (error) throw error;
     if (!_sbJoinedMatchIds.includes(matchId)) _sbJoinedMatchIds.push(matchId);
@@ -208,9 +218,49 @@ export const matchService = {
       : _sbJoinedMatchIds.includes(matchId);
   },
 
-  async reportScore(matchId: ID, outcome: unknown): Promise<{ success: boolean; matchId: ID; outcome: unknown }> {
-    if (api.isMock()) return delay({ success: true, matchId, outcome }, 300);
-    return { success: true, matchId, outcome };
+  async reportScore(
+    matchId: ID,
+    outcome: 'win' | 'loss' | 'draw',
+    scores?: { scoreA: number; scoreB: number },
+    playerStats?: { points: number; rebounds: number; assists: number; mvp?: boolean },
+  ): Promise<{ success: boolean }> {
+    if (api.isMock()) {
+      // Mock: maç geçmişine ekle
+      const entry = {
+        id:        'result-' + Date.now(),
+        outcome:   outcome === 'win' ? 'W' : outcome === 'draw' ? 'D' : 'L',
+        versus:    'RAKIP',
+        matchName: 'SAHA',
+        date:      new Date().toLocaleDateString('tr-TR'),
+        scoreA:    scores?.scoreA ?? 0,
+        scoreB:    scores?.scoreB ?? 0,
+        mvp:       playerStats?.mvp ?? false,
+        stats: [
+          { label: 'SAY',   value: String(playerStats?.points   ?? 0) },
+          { label: 'RİB',   value: String(playerStats?.rebounds ?? 0) },
+          { label: 'ASİST', value: String(playerStats?.assists  ?? 0) },
+        ],
+        tags: playerStats?.mvp ? ['MVP'] : [],
+      };
+      const store = mockStore as unknown as Record<string, unknown>;
+      store['recentResults'] = [entry, ...((store['recentResults'] as unknown[]) ?? [])].slice(0, 20);
+      return delay({ success: true }, 300);
+    }
+    const userId = await getCurrentUserId(supabase);
+    if (!userId) throw new Error('Oturum gerekli');
+    const { error } = await supabase!.from('match_results').upsert({
+      match_id:  matchId,
+      user_id:   userId,
+      outcome,
+      score_a:   scores?.scoreA ?? 0,
+      score_b:   scores?.scoreB ?? 0,
+      points:    playerStats?.points   ?? 0,
+      rebounds:  playerStats?.rebounds ?? 0,
+      assists:   playerStats?.assists  ?? 0,
+      mvp:       playerStats?.mvp ?? false,
+    }, { onConflict: 'match_id,user_id' });
+    if (error) throw error;
+    return { success: true };
   },
 };
 

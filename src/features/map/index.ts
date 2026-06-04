@@ -1,0 +1,1 @@
+export { useMapFeature } from './useMapFeature';

@@ -6,48 +6,51 @@ import type { Nullable } from '../common';
 
 // ─── All sheet names in the app ───────────────────────────────────────────────
 export type SheetName =
-  | 'matchDetail'
-  | 'teamDetail'
+  | 'match-detail'
+  | 'team-detail'
   | 'chat'
   | 'notifications'
-  | 'profileEdit'
-  | 'playerProfile'
+  | 'profile-edit'
+  | 'player-profile'
   | 'activity'
-  | 'proUpgrade'
+  | 'pro-upgrade'
   | 'leaderboard'
-  | 'badgeDetail';
+  | 'badge-detail'
+  | 'booking';
 
 // ─── Per-sheet payload types ──────────────────────────────────────────────────
 export interface MatchDetailPayload {
-  sheet: 'matchDetail';
+  sheet: 'match-detail';
   match: Match;
 }
 
 export interface TeamDetailPayload {
-  sheet: 'teamDetail';
+  sheet: 'team-detail';
   team: Team;
 }
 
 export interface ChatPayload {
   sheet: 'chat';
-  matchId: string;
-  matchTitle: string;
+  team?: Team | null;
+  matchId?: string;
+  matchTitle?: string;
 }
 
 export interface NotificationsPayload {
   sheet: 'notifications';
-  notifications: Notification[];
+  notifications?: Notification[];
 }
 
 export interface ProfileEditPayload {
-  sheet: 'profileEdit';
-  profile: Profile;
+  sheet: 'profile-edit';
+  profile?: Profile | null;
 }
 
 export interface PlayerProfilePayload {
-  sheet: 'playerProfile';
-  userId: string;
-  nickname: string;
+  sheet: 'player-profile';
+  userId?: string;
+  nickname?: string;
+  player?: Profile | null;
 }
 
 export interface ActivityPayload {
@@ -55,7 +58,8 @@ export interface ActivityPayload {
 }
 
 export interface ProUpgradePayload {
-  sheet: 'proUpgrade';
+  sheet: 'pro-upgrade';
+  plan?: string;
 }
 
 export interface LeaderboardPayload {
@@ -63,8 +67,14 @@ export interface LeaderboardPayload {
 }
 
 export interface BadgeDetailPayload {
-  sheet: 'badgeDetail';
+  sheet: 'badge-detail';
   badge: Badge;
+}
+
+export interface BookingPayload {
+  sheet:     'booking';
+  courtId:   string;
+  courtName: string;
 }
 
 // ─── Discriminated union of all payloads ──────────────────────────────────────
@@ -78,7 +88,8 @@ export type SheetPayload =
   | ActivityPayload
   | ProUpgradePayload
   | LeaderboardPayload
-  | BadgeDetailPayload;
+  | BadgeDetailPayload
+  | BookingPayload;
 
 // ─── Open-sheet helper types ──────────────────────────────────────────────────
 export type OpenSheet = (name: SheetName, payload?: Nullable<SheetPayload>) => void;

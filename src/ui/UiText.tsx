@@ -5,7 +5,7 @@ import type { TypographyVariant } from '../design/theme';
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TextColor =
+export type TextColor =
   | 'default' | 'dim' | 'muted'
   | 'brand' | 'accent'
   | 'success' | 'warning' | 'error' | 'info' | 'special';

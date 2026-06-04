@@ -1,42 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import { View, Text, Modal, TouchableOpacity, FlatList, StyleSheet, Dimensions } from 'react-native';
+import type { ListRenderItemInfo } from 'react-native';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
+import { useLeaderboard, useSeasons } from '@domains/leaderboard';
+import { RANK_TIER_COLOR as TIER_COLOR } from '@shared/constants/tier';
+import type { LeaderEntry } from '../types/domain/leaderboard';
 
 const { height: SCREEN_H } = Dimensions.get('window');
-
-var MOCK_LEADERBOARD = [
-  { rank: 1,  nickname: 'SULTAN_34',    district: 'Fatih',      wins: 42, games: 51, ovr: 97, tier: 'Elmas I' },
-  { rank: 2,  nickname: 'THUNDER_41',   district: 'Bakırköy',   wins: 38, games: 46, ovr: 95, tier: 'Elmas I' },
-  { rank: 3,  nickname: 'MJ_STYLE',     district: 'Beşiktaş',   wins: 35, games: 44, ovr: 93, tier: 'Elmas II' },
-  { rank: 4,  nickname: 'KRAL_34',      district: 'Kadıköy',    wins: 31, games: 41, ovr: 91, tier: 'Elmas III' },
-  { rank: 5,  nickname: 'FALCON_BS',    district: 'Üsküdar',    wins: 29, games: 39, ovr: 89, tier: 'Platin I' },
-  { rank: 6,  nickname: 'EJDER_KDK',    district: 'Kadıköy',    wins: 27, games: 38, ovr: 87, tier: 'Platin II' },
-  { rank: 7,  nickname: 'GÖLGE_34',     district: 'Şişli',      wins: 25, games: 35, ovr: 85, tier: 'Platin II' },
-  { rank: 8,  nickname: 'BORAN',        district: 'Beşiktaş',   wins: 23, games: 33, ovr: 83, tier: 'Platin III' },
-  { rank: 9,  nickname: 'SKYWALKER_0',  district: 'Ataşehir',   wins: 21, games: 30, ovr: 81, tier: 'Altın I' },
-  { rank: 10, nickname: 'HAWK_KADIKOY', district: 'Kadıköy',    wins: 19, games: 28, ovr: 79, tier: 'Altın II' },
-  { rank: 11, nickname: 'DEMİR_KDK',    district: 'Kadıköy',    wins: 17, games: 26, ovr: 77, tier: 'Altın III' },
-  { rank: 12, nickname: 'ŞİMŞEK_BSK',  district: 'Beşiktaş',   wins: 15, games: 24, ovr: 75, tier: 'Altın III' },
-];
-
-var TIER_COLOR = {
-  'Elmas I': '#00D4FF', 'Elmas II': '#00D4FF', 'Elmas III': '#00D4FF',
-  'Platin I': '#A8A9AD', 'Platin II': '#A8A9AD', 'Platin III': '#A8A9AD',
-  'Altın I': '#FFD700', 'Altın II': '#FFD700', 'Altın III': '#FFD700',
-};
 
 var TABS = [t('leaderboard.tab_ovr'), t('leaderboard.tab_wins'), t('leaderboard.tab_winpct')];
 
 var TAB_OVR = t('leaderboard.tab_ovr');
 var TAB_WINS = t('leaderboard.tab_wins');
 
-function PodiumRow({ item }) {
-  var rankColors = { 1: '#FFD700', 2: '#A8A9AD', 3: '#CD7F32' };
-  var rankColor = rankColors[item.rank] || C.textDim;
-  var tierColor = TIER_COLOR[item.tier] || C.textDim;
-  var sizes    = { 1: 56, 2: 48, 3: 44 };
-  var podSize  = sizes[item.rank] || 0;
+type RankedEntry = LeaderEntry & { rank: number; isMe: boolean };
+const RANK_COLORS: Record<number, string> = { 1: '#FFD700', 2: '#A8A9AD', 3: '#CD7F32' };
+const PODIUM_SIZES: Record<number, number> = { 1: 56, 2: 48, 3: 44 };
+
+function PodiumRow({ item }: { item: RankedEntry | undefined }) {
+  if (!item) return null;
+  var rankColor = RANK_COLORS[item.rank] ?? C.textDim;
+  var tierColor = TIER_COLOR[item.tier] ?? C.textDim;
+  var podSize   = PODIUM_SIZES[item.rank] ?? 0;
   return (
     <View style={[lb.podiumItem, { width: podSize + 44 }]}>
       <View style={[lb.podiumAvatar, { borderColor: rankColor }]}>
@@ -51,12 +37,11 @@ function PodiumRow({ item }) {
   );
 }
 
-function LeaderRow({ item, tab }) {
-  var rankColors = { 1: '#FFD700', 2: '#A8A9AD', 3: '#CD7F32' };
-  var rankColor = item.rank <= 3 ? rankColors[item.rank] : C.textDim;
+function _LeaderRow({ item, tab }: { item: RankedEntry; tab: string }) {
+  var rankColor = item.rank <= 3 ? (RANK_COLORS[item.rank] ?? C.textDim) : C.textDim;
   var wl = item.games > 0 ? Math.round((item.wins / item.games) * 100) : 0;
   var statVal = tab === TAB_OVR ? String(item.ovr) : tab === TAB_WINS ? String(item.wins) + 'G' : wl + '%';
-  var tierColor = TIER_COLOR[item.tier] || C.textDim;
+  var tierColor = TIER_COLOR[item.tier] ?? C.textDim;
   return (
     <View style={[lb.row, item.isMe && lb.rowMe]}>
       <Text style={[lb.rankNum, { color: rankColor }]}>{String(item.rank).padStart(2, '0')}</Text>
@@ -76,24 +61,43 @@ function LeaderRow({ item, tab }) {
     </View>
   );
 }
+const LeaderRow = memo(_LeaderRow);
 
-export default function LeaderboardSheet({ open, onClose, myNickname }) {
-  var [activeTab, setActiveTab] = useState(0);
+interface LeaderboardSheetProps { open: boolean; onClose: () => void; myNickname: string | null; }
+export default function LeaderboardSheet({ open, onClose, myNickname }: LeaderboardSheetProps) {
+  var [activeTab, setActiveTab]       = useState(0);
+  var [activeSeasonId, setSeasonId]   = useState<number | undefined>(undefined);
+  var leaderResult  = useLeaderboard(activeSeasonId);
+  var seasonsResult = useSeasons();
+  var rawData    = leaderResult.data  || [];
+  var seasons    = seasonsResult.data || [];
   if (!open) return null;
-  var sorted = MOCK_LEADERBOARD.slice().sort(function(a, b) {
-    if (activeTab === 0) return b.ovr - a.ovr;
-    if (activeTab === 1) return b.wins - a.wins;
-    var aPct = a.games > 0 ? a.wins / a.games : 0;
-    var bPct = b.games > 0 ? b.wins / b.games : 0;
-    return bPct - aPct;
-  }).map(function(item, i) {
-    return Object.assign({}, item, {
-      rank: i + 1,
-      isMe: myNickname ? item.nickname.toLowerCase() === myNickname.toLowerCase() : false,
+
+  var sorted = useMemo(function() {
+    return rawData.slice().sort(function(a, b) {
+      if (activeTab === 0) return b.ovr - a.ovr;
+      if (activeTab === 1) return b.wins - a.wins;
+      var aPct = a.games > 0 ? a.wins / a.games : 0;
+      var bPct = b.games > 0 ? b.wins / b.games : 0;
+      return bPct - aPct;
+    }).map(function(item, i) {
+      return Object.assign({}, item, {
+        rank: i + 1,
+        isMe: myNickname ? item.nickname.toLowerCase() === myNickname.toLowerCase() : false,
+      });
     });
-  });
+  }, [activeTab, myNickname, rawData]);
+
   var top3 = sorted.slice(0, 3);
   var rest = sorted.slice(3);
+  var activeTabLabel = TABS[Math.min(activeTab, TABS.length - 1)] ?? '';
+  var keyExtractor  = useCallback(function(item: RankedEntry) { return String(item.rank); }, []);
+  var renderItem    = useCallback(function(info: ListRenderItemInfo<RankedEntry>) { return <LeaderRow item={info.item} tab={activeTabLabel ?? ''} />; }, [activeTabLabel]);
+  var renderSep     = useCallback(function() { return <View style={lb.sep} />; }, []);
+  var onTab0 = useCallback(function() { setActiveTab(0); }, []);
+  var onTab1 = useCallback(function() { setActiveTab(1); }, []);
+  var onTab2 = useCallback(function() { setActiveTab(2); }, []);
+  var tabHandlers = [onTab0, onTab1, onTab2];
   return (
     <Modal visible={true} transparent animationType="slide" onRequestClose={onClose}>
       <View style={lb.root}>
@@ -110,6 +114,25 @@ export default function LeaderboardSheet({ open, onClose, myNickname }) {
             </TouchableOpacity>
           </View>
 
+          {/* Sezon seçici */}
+          {seasons.length > 1 ? (
+            <View style={lb.seasonRow}>
+              {seasons.map(function(season) {
+                var active = (activeSeasonId ?? seasons[0]?.id) === season.id;
+                return (
+                  <TouchableOpacity
+                    key={season.id}
+                    style={[lb.seasonBtn, active && lb.seasonBtnActive]}
+                    onPress={function() { setSeasonId(season.id); }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[lb.seasonTxt, active && lb.seasonTxtActive]}>{season.name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : null}
+
           {/* Tabs */}
           <View style={lb.tabRow}>
             {TABS.map(function(tab, i) {
@@ -117,7 +140,7 @@ export default function LeaderboardSheet({ open, onClose, myNickname }) {
                 <TouchableOpacity
                   key={tab}
                   style={[lb.tab, activeTab === i && lb.tabActive]}
-                  onPress={function() { setActiveTab(i); }}
+                  onPress={tabHandlers[i]}
                   activeOpacity={0.8}
                 >
                   <Text style={[lb.tabTxt, activeTab === i && lb.tabTxtActive]}>{tab}</Text>
@@ -136,12 +159,14 @@ export default function LeaderboardSheet({ open, onClose, myNickname }) {
           {/* Rest of list */}
           <FlatList
             data={rest}
-            keyExtractor={function(item) { return String(item.rank); }}
-            renderItem={function(info) { return <LeaderRow item={info.item} tab={TABS[activeTab]} />; }}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
             contentContainerStyle={lb.list}
             showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={function() { return <View style={lb.sep} />; }}
-            extraData={activeTab}
+            ItemSeparatorComponent={renderSep}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={true}
           />
         </View>
       </View>
@@ -255,4 +280,10 @@ const lb = StyleSheet.create({
   statVal: { color: C.text, fontSize: F.base, fontWeight: '900', width: 44, textAlign: 'right' },
   statValMe: { color: C.lime },
   sep: { height: 1, backgroundColor: C.border },
+  // Sezon seçici
+  seasonRow: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm, paddingHorizontal: S.screen, paddingVertical: S.sm, borderBottomWidth: 1, borderBottomColor: C.border },
+  seasonBtn: { paddingHorizontal: S.md, paddingVertical: 5, borderRadius: R.full, borderWidth: 1, borderColor: C.border },
+  seasonBtnActive: { borderColor: C.orange, backgroundColor: 'rgba(255,91,0,0.1)' },
+  seasonTxt: { color: C.textDim, fontSize: F.xs, fontWeight: '700' },
+  seasonTxtActive: { color: C.orange, fontWeight: '900' },
 });

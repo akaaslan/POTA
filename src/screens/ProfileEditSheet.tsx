@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, Modal, ActivityIndicator, StyleSheet, Dimensions, KeyboardAvoidingView, Platform } from 'react-native';
+import { Image } from 'expo-image';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
+import type { Profile } from '../types/domain/profile';
+import { PRESET_AVATARS } from '@shared/constants/avatars';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 var POSITIONS   = t('profileEdit.positions');
@@ -10,7 +13,7 @@ var EXPERIENCES = t('profileEdit.levels');
 var DISTRICTS   = t('profileEdit.districts');
 var LEVEL_COLORS = ['#555259', '#00D4FF', '#4ADE80', '#FF5B00', '#C8F000'];
 
-function SectionHead({ num, title }) {
+function SectionHead({ num, title }: { num: number; title: string }) {
   return (
     <View style={pe.sectionHead}>
       <Text style={pe.sectionNum}>{num < 10 ? '0' + num : String(num)}</Text>
@@ -20,15 +23,25 @@ function SectionHead({ num, title }) {
   );
 }
 
-export default function ProfileEditSheet({ open, profile, onClose, onSave }) {
-  var [form, setForm] = useState(profile || {});
+interface ProfileEditSheetProps {
+  open: boolean;
+  profile: Partial<Profile> | null;
+  onClose: () => void;
+  onSave: (updates: Partial<Profile>) => void | Promise<void>;
+}
+export default function ProfileEditSheet({ open, profile, onClose, onSave }: ProfileEditSheetProps) {
+  var [form, setForm]     = useState<Partial<Profile>>(profile || {});
   var [saving, setSaving] = useState(false);
+
+  function selectAvatar(url: string) {
+    setForm(function(prev) { return Object.assign({}, prev, { avatar: url }); });
+  }
 
   useEffect(function() {
     if (open && profile) setForm(Object.assign({}, profile));
   }, [open, profile]);
 
-  function set(key, val) {
+  function set(key: keyof Profile, val: string) {
     setForm(function(prev) { return Object.assign({}, prev, { [key]: val }); });
   }
 
@@ -71,6 +84,37 @@ export default function ProfileEditSheet({ open, profile, onClose, onSave }) {
               contentContainerStyle={pe.scroll}
               keyboardShouldPersistTaps="handled"
             >
+              {/* ── AVATAR SEÇİMİ ── */}
+              <View style={pe.avatarSection}>
+                {/* Seçili avatar önizleme */}
+                <View style={pe.avatarPreviewWrap}>
+                  {form.avatar ? (
+                    <Image source={{ uri: form.avatar }} style={pe.avatarPreview} contentFit="cover" cachePolicy="memory-disk" />
+                  ) : (
+                    <View style={pe.avatarPlaceholder}>
+                      <Text style={pe.avatarPlaceholderTxt}>{form.nickname ? form.nickname.charAt(0).toUpperCase() : '?'}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={pe.avatarHint}>AVATAR SEÇ</Text>
+                {/* Hazır avatar ızgarası */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={pe.avatarRow}>
+                  {PRESET_AVATARS.map(function(url) {
+                    var active = form.avatar === url;
+                    return (
+                      <TouchableOpacity
+                        key={url}
+                        style={[pe.avatarOption, active && pe.avatarOptionActive]}
+                        onPress={function() { selectAvatar(url); }}
+                        activeOpacity={0.8}
+                      >
+                        <Image source={{ uri: url }} style={pe.avatarOptionImg} contentFit="cover" cachePolicy="memory-disk" />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
               {/* ── LIVE PLAYER CARD ── */}
               <View style={pe.previewCard}>
                 <View style={pe.previewAccentBar} />
@@ -139,7 +183,7 @@ export default function ProfileEditSheet({ open, profile, onClose, onSave }) {
               <View style={pe.section}>
                 <SectionHead num={2} title={t('profileEdit.field_position')} />
                 <View style={pe.chipWrap}>
-                  {POSITIONS.map(function(opt) {
+                  {(POSITIONS as string[]).map(function(opt: string) {
                     var active = form.position === opt;
                     return (
                       <TouchableOpacity
@@ -159,7 +203,7 @@ export default function ProfileEditSheet({ open, profile, onClose, onSave }) {
               <View style={pe.section}>
                 <SectionHead num={3} title={t('profileEdit.field_archetype')} />
                 <View style={pe.chipWrap}>
-                  {ARCHETYPES.map(function(opt) {
+                  {(ARCHETYPES as string[]).map(function(opt: string) {
                     var active = form.archetype === opt;
                     return (
                       <TouchableOpacity
@@ -179,7 +223,7 @@ export default function ProfileEditSheet({ open, profile, onClose, onSave }) {
               <View style={pe.section}>
                 <SectionHead num={4} title={t('profileEdit.field_level')} />
                 <View style={pe.levelWrap}>
-                  {EXPERIENCES.map(function(opt, idx) {
+                  {(EXPERIENCES as string[]).map(function(opt: string, idx: number) {
                     var active = form.experience === opt;
                     var col = LEVEL_COLORS[idx] || C.lime;
                     return (
@@ -202,7 +246,7 @@ export default function ProfileEditSheet({ open, profile, onClose, onSave }) {
               <View style={pe.section}>
                 <SectionHead num={5} title={t('profileEdit.field_district')} />
                 <View style={pe.chipWrap}>
-                  {DISTRICTS.map(function(opt) {
+                  {(DISTRICTS as string[]).map(function(opt: string) {
                     var active = form.district === opt;
                     return (
                       <TouchableOpacity
@@ -293,6 +337,17 @@ const pe = StyleSheet.create({
 
   scroll: { paddingHorizontal: S.screen, paddingTop: S.base },
 
+  // Avatar seçimi
+  avatarSection: { alignItems: 'center', marginBottom: S.lg },
+  avatarPreviewWrap: { marginBottom: S.sm },
+  avatarPreview: { width: 88, height: 88, borderRadius: 44, borderWidth: 3, borderColor: C.lime, backgroundColor: C.bgCard2 },
+  avatarPlaceholder: { width: 88, height: 88, borderRadius: 44, borderWidth: 3, borderColor: C.border, backgroundColor: C.bgCard2, alignItems: 'center', justifyContent: 'center' },
+  avatarPlaceholderTxt: { color: C.lime, fontSize: 32, fontWeight: '900' },
+  avatarHint: { color: C.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 2, marginBottom: S.sm },
+  avatarRow: { gap: S.sm, paddingHorizontal: S.xs },
+  avatarOption: { width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: C.border, overflow: 'hidden', backgroundColor: C.bgCard2 },
+  avatarOptionActive: { borderColor: C.lime },
+  avatarOptionImg: { width: '100%', height: '100%' },
   // Live preview card
   previewCard: {
     flexDirection: 'row', alignItems: 'center',

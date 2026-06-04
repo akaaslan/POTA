@@ -7,14 +7,19 @@ import {
   Modal,
   StyleSheet,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { C, F, R, S } from '../theme';
 import { t } from '../i18n';
+import { useFollowCounts, useFollowToggle } from '@domains/follow/hooks/useFollow';
+import { useAuthStore } from '../store/auth';
 
 var { height: SCREEN_H } = Dimensions.get('window');
 
-function StatCell({ stat }) {
+interface PlayerStat { label: string; value: string | number; }
+interface PlayerProfile { uid?: string; avatar?: string | null; name?: string; nickname?: string; archetype?: string; tier?: string; district?: string; jerseyNumber?: string; ovr?: number; stats?: PlayerStat[]; }
+function StatCell({ stat }: { stat: PlayerStat }) {
   return (
     <View style={pp.statCell}>
       <Text style={pp.statVal}>{stat.value}</Text>
@@ -23,11 +28,17 @@ function StatCell({ stat }) {
   );
 }
 
-export default function PlayerProfileSheet({ player, onClose }) {
+export default function PlayerProfileSheet({ player, onClose }: { player: PlayerProfile | null; onClose: () => void }) {
   if (!player) return null;
 
-  var ovrStat = (player.stats || []).find(function(s) { return s.label === 'OVR'; });
-  var displayStats = (player.stats || []).filter(function(s) { return s.label !== 'OVR'; });
+  var session     = useAuthStore(function(s) { return s.session; });
+  var targetId    = player.uid ?? null;
+  var isOwnProfile = session?.id === targetId;
+  var followData  = useFollowCounts(!isOwnProfile ? targetId : null);
+  var followToggle = useFollowToggle(!isOwnProfile ? targetId : null);
+
+  var ovrStat = (player.stats || []).find(function(s: PlayerStat) { return s.label === 'OVR'; });
+  var displayStats = (player.stats || []).filter(function(s: PlayerStat) { return s.label !== 'OVR'; });
 
   return (
     <Modal visible={!!player} transparent animationType="slide" onRequestClose={onClose}>
@@ -48,7 +59,7 @@ export default function PlayerProfileSheet({ player, onClose }) {
             {/* Avatar + identity */}
             <View style={pp.hero}>
               <View style={pp.avatarWrap}>
-                <Image source={{ uri: player.avatar }} style={pp.avatar} />
+                <Image source={player.avatar ? { uri: player.avatar } : null} style={pp.avatar} contentFit="cover" cachePolicy="memory-disk" />
                 {ovrStat ? (
                   <View style={pp.ovrBadge}>
                     <Text style={pp.ovrNum}>{ovrStat.value}</Text>
@@ -67,12 +78,42 @@ export default function PlayerProfileSheet({ player, onClose }) {
               </View>
             </View>
 
+            {/* Takip butonu + sayaçlar */}
+            {!isOwnProfile && targetId ? (
+              <View style={pp.followRow}>
+                <View style={pp.followCounts}>
+                  <Text style={pp.followNum}>{followData.data?.followersCount ?? 0}</Text>
+                  <Text style={pp.followLbl}>TAKİPÇİ</Text>
+                </View>
+                <View style={pp.followCounts}>
+                  <Text style={pp.followNum}>{followData.data?.followingCount ?? 0}</Text>
+                  <Text style={pp.followLbl}>TAKİP</Text>
+                </View>
+                <TouchableOpacity
+                  style={[pp.followBtn, followData.data?.isFollowing && pp.followBtnActive]}
+                  onPress={function() {
+                    if (followData.data?.isFollowing) { followToggle.unfollow.mutate(); }
+                    else { followToggle.follow.mutate(); }
+                  }}
+                  disabled={followToggle.isPending}
+                  activeOpacity={0.85}
+                >
+                  {followToggle.isPending
+                    ? <ActivityIndicator size="small" color={C.lime} />
+                    : <Text style={[pp.followBtnTxt, followData.data?.isFollowing && pp.followBtnTxtActive]}>
+                        {followData.data?.isFollowing ? '✓ TAKİP EDİLİYOR' : '+ TAKİP ET'}
+                      </Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
             {/* Stats grid */}
             {player.stats && displayStats.length > 0 ? (
               <View style={pp.statsSection}>
                 <Text style={pp.sectionLbl}>{t('playerProfile.section_stats')}</Text>
                 <View style={pp.statsGrid}>
-                  {displayStats.map(function(stat) {
+                  {displayStats.map(function(stat: PlayerStat) {
                     return <StatCell key={stat.label} stat={stat} />;
                   })}
                 </View>
@@ -165,6 +206,14 @@ var pp = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,91,0,0.3)',
   },
+  followRow: { flexDirection: 'row', alignItems: 'center', gap: S.md, paddingVertical: S.md, borderTopWidth: 1, borderTopColor: C.border, marginTop: S.sm },
+  followCounts: { alignItems: 'center', minWidth: 56 },
+  followNum: { color: C.text, fontSize: F.xl, fontWeight: '900' },
+  followLbl: { color: C.textDim, fontSize: 9, fontWeight: '800', letterSpacing: 1.5, marginTop: 2 },
+  followBtn: { flex: 1, borderRadius: R.md, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: C.lime },
+  followBtnActive: { backgroundColor: 'rgba(200,240,0,0.1)' },
+  followBtnTxt: { color: C.lime, fontSize: F.xs, fontWeight: '900', letterSpacing: 1 },
+  followBtnTxtActive: { color: C.textDim },
   statsSection: { marginBottom: S.lg },
   sectionLbl: { color: C.textDim, fontSize: F.xs, fontWeight: '800', letterSpacing: 2, marginBottom: S.sm },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: S.sm },

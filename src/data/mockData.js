@@ -644,12 +644,12 @@ export function buildHomeFeed(allMatches) {
   };
 }
 
-export function buildProfileOverview(profileDraft) {
+export function buildProfileOverview(profileDraft, statsOverride, recentMatchesOverride) {
   var profile = Object.assign({}, MOCK_PROFILE, profileDraft || {});
   return {
     profile: profile,
-    stats: MOCK_STATS,
+    stats: statsOverride || MOCK_STATS,
     badges: MOCK_BADGES,
-    recentMatches: MOCK_RECENT_MATCHES,
+    recentMatches: recentMatchesOverride || MOCK_RECENT_MATCHES,
   };
 }

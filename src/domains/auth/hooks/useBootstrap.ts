@@ -18,6 +18,7 @@ export function useBootstrap(): void {
     if (bootState !== 'idle') return;
     setBootState('loading');
 
+    // getSession her zaman tamamlanmalı — cleanup bu callback'i engellemez
     authService.getSession().then((sess) => {
       if (sess) {
         setSession(sess);
@@ -30,17 +31,22 @@ export function useBootstrap(): void {
     });
 
     if (!api.isMock() && supabase) {
+      // Subscription callback için ayrı mounted flag — sadece gerçek unmount'ta kapanır
+      let active = true;
       const subscription = supabase.auth.onAuthStateChange((event, sbSession) => {
+        if (!active) return;
         if (event === 'SIGNED_OUT' || !sbSession) {
           clearSession();
           router.replace('/(auth)/login');
         } else if (event === 'SIGNED_IN' && sbSession) {
           authService.getSession().then((sess) => {
+            if (!active) return;
             if (sess) setSession(sess);
           }).catch(() => {});
         }
       });
       return () => {
+        active = false;
         subscription.data?.subscription.unsubscribe();
       };
     }

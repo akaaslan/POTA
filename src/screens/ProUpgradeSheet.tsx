@@ -27,7 +27,8 @@ var PLANS = [
   { id: 'yearly',  label: t('proUpgrade.plan_yearly'),  price: '599 ₺', period: t('proUpgrade.plan_yearly_period'), savings: t('proUpgrade.plan_savings'), recommended: true },
 ];
 
-export default function ProUpgradeSheet({ open, onClose, onUpgrade }) {
+interface ProUpgradeSheetProps { open: boolean; onClose: () => void; onUpgrade: (plan: string) => void; }
+export default function ProUpgradeSheet({ open, onClose, onUpgrade }: ProUpgradeSheetProps) {
   var [selectedPlan, setSelectedPlan] = useState('yearly');
   if (!open) return null;
   return (
